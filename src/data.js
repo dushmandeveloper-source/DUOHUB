@@ -5,7 +5,8 @@ import {
   Film, Gamepad2, Book, Music, ShoppingBag, Shirt, Laptop, Sofa, Package, Sparkles,
   Scissors, Palette, Stethoscope, Pill, Smile, Activity, Trophy, Plane, Hotel, Gift,
   Heart, PawPrint, Bone, Hammer, Flower2, Pencil, Wine, PartyPopper, Camera, MoreHorizontal,
-  Croissant, Sandwich, UtensilsCrossed, ShoppingBasket, Bath, Tent
+  Croissant, Sandwich, UtensilsCrossed, ShoppingBasket, Bath, Tent,
+  CarTaxiFront, CarFront, PlaneTakeoff, Ship, MapPin
 } from 'lucide-react';
 
 export const INITIAL_USERS = [
@@ -45,11 +46,16 @@ export const CATEGORIES = [
   { id: 'fast-food', name: 'Fast Food', icon: Pizza, type: 'Variable' },
   { id: 'snacks', name: 'Snacks', icon: Cookie, type: 'Variable' },
   { id: 'travel-food', name: 'Travel Food', icon: Tent, type: 'Variable' },
-  { id: 'transport', name: 'Transport', icon: Bus, type: 'Variable' },
-  { id: 'fuel', name: 'Fuel', icon: Fuel, type: 'Variable' },
-  { id: 'taxi', name: 'Taxi / Ride Hailing', icon: Car, type: 'Variable' },
+  { id: 'bus', name: 'Bus Fare', icon: Bus, type: 'Variable' },
   { id: 'train', name: 'Train / Metro', icon: Train, type: 'Variable' },
+  { id: 'taxi', name: 'Taxi / Uber / PickMe', icon: CarTaxiFront, type: 'Variable' },
+  { id: 'tuk-tuk', name: 'Tuk-tuk / Three Wheeler', icon: CarFront, type: 'Variable' },
+  { id: 'fuel', name: 'Fuel', icon: Fuel, type: 'Variable' },
+  { id: 'parking', name: 'Parking', icon: MapPin, type: 'Variable' },
+  { id: 'flights', name: 'Flights', icon: PlaneTakeoff, type: 'Variable' },
+  { id: 'ferry', name: 'Ferry / Boat', icon: Ship, type: 'Variable' },
   { id: 'bike', name: 'Bike', icon: Bike, type: 'Variable' },
+  { id: 'transport', name: 'Other Transport', icon: Car, type: 'Variable' },
   { id: 'car-maintenance', name: 'Vehicle Maintenance', icon: Wrench, type: 'Variable' },
   { id: 'movies', name: 'Movies & Shows', icon: Film, type: 'Variable' },
   { id: 'games', name: 'Games', icon: Gamepad2, type: 'Variable' },
