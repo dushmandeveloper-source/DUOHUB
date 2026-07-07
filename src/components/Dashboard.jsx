@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown } from 'lucide-react';
+import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
@@ -45,6 +45,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
   const totalSpent = monthExpenses.reduce((acc, curr) => acc + curr.amount, 0);
   const budgetAllowed = currentPlan.income - currentPlan.targetSavings;
   const remainingBudget = Math.max(0, budgetAllowed - totalSpent);
+  const availableBalance = currentPlan.income - totalSpent;
 
   const spendPercent = budgetAllowed > 0 ? Math.min(100, (totalSpent / budgetAllowed) * 100) : 0;
   const progressPercent = savingsGoal.target > 0 ? Math.min(100, Math.round((savingsGoal.current / savingsGoal.target) * 100)) : 0;
@@ -94,7 +95,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
       {/* OVERVIEW CHARTS & STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
@@ -103,6 +104,16 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
               <p className="text-sm text-gray-500 font-medium leading-tight">Income Limit</p>
             </div>
             <p className="text-xl md:text-2xl font-bold">{fm(currentPlan.income)}</p>
+          </div>
+
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <CreditCard size={20} />
+              </div>
+              <p className="text-sm text-gray-500 font-medium leading-tight">Spent This Month</p>
+            </div>
+            <p className="text-xl md:text-2xl font-bold text-red-600">{fm(totalSpent)}</p>
           </div>
 
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
@@ -116,6 +127,17 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           </div>
 
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${availableBalance >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                <Banknote size={20} />
+              </div>
+              <p className="text-sm text-gray-500 font-medium leading-tight">Available Balance</p>
+            </div>
+            <p className={`text-xl md:text-2xl font-bold ${availableBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fm(availableBalance)}</p>
+            <p className="text-[10px] font-bold mt-1 text-gray-400 uppercase tracking-wider">Income − Spent</p>
+          </div>
+
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center sm:col-span-2">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
                 <Target size={20} />
