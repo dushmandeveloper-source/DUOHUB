@@ -1,7 +1,62 @@
 import { useState, useEffect } from 'react';
-import { TrendingDown, User, Bell, Trash2 } from 'lucide-react';
+import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download } from 'lucide-react';
 import { notificationSupport, requestNotificationPermission, showSystemNotification, getNotifyTime, setNotifyTime, enableBackgroundCheck } from '../notifications';
+import { canInstall, isInstalled, isIOS, promptInstall, onInstallChange } from '../install';
 import { CURRENCIES } from '../lib/currency';
+
+function InstallApp() {
+  const [installed, setInstalled] = useState(isInstalled());
+  const [available, setAvailable] = useState(canInstall());
+
+  useEffect(() => {
+    const update = () => {
+      setInstalled(isInstalled());
+      setAvailable(canInstall());
+    };
+    const unsubscribe = onInstallChange(update);
+    update();
+    return unsubscribe;
+  }, []);
+
+  const handleInstall = async () => {
+    const outcome = await promptInstall();
+    if (outcome === 'accepted') setInstalled(true);
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-8">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 md:w-12 md:h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+          <Smartphone size={20} className="md:w-6 md:h-6" />
+        </div>
+        <div>
+          <h2 className="text-lg md:text-xl font-bold">Install App</h2>
+          <p className="text-gray-500 text-xs md:text-sm">Add DuoHub to your home screen like a normal app.</p>
+        </div>
+      </div>
+
+      {installed ? (
+        <span className="inline-flex items-center gap-2 text-sm font-bold text-green-700 bg-green-100 px-4 py-2.5 rounded-xl">
+          <CheckCircle2 size={16} /> Installed
+        </span>
+      ) : available ? (
+        <button onClick={handleInstall} className="w-full sm:w-auto bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm text-sm flex items-center justify-center gap-2">
+          <Download size={16} /> Install Now
+        </button>
+      ) : isIOS() ? (
+        <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4">
+          <p className="font-semibold text-gray-700 mb-1">To install on iPhone:</p>
+          <p>Open this site in <strong>Safari</strong>, tap the <strong>Share</strong> button, then choose <strong>"Add to Home Screen"</strong>. Apple does not allow apps to trigger this automatically.</p>
+        </div>
+      ) : (
+        <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4">
+          <p className="font-semibold text-gray-700 mb-1">Install option not available right now.</p>
+          <p>Use <strong>Chrome</strong> and open the browser menu (⋮) → <strong>"Add to Home screen"</strong> / <strong>"Install app"</strong>. If you just opened the page, wait a few seconds and revisit this tab — the button appears once the browser allows it.</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ResetRecords({ expenses, todos, onReset }) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -159,6 +214,8 @@ export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdate
 
   return (
     <div className="space-y-6">
+      <InstallApp />
+
       <NotificationSettings />
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-8">
