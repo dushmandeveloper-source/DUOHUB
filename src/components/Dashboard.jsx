@@ -114,22 +114,22 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center h-64 lg:h-auto w-full">
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Budget Breakdown</h3>
+        <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col w-full min-h-64 sm:min-h-72 lg:min-h-0">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 text-center shrink-0">Budget Breakdown</h3>
           {chartData.length > 0 ? (
-            <div className="w-full h-full flex-1 min-h-0">
+            <div className="w-full flex-1 min-h-48">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">
+                <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+                  <Pie data={chartData} cx="50%" cy="50%" innerRadius="50%" outerRadius="75%" paddingAngle={4} dataKey="value" stroke="none">
                     {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip formatter={(value) => `$${value}`} />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }}/>
+                  <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
+                  <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', lineHeight: '16px' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="text-gray-400 text-sm h-full flex items-center text-center">No financial plan set for this month.</div>
+            <div className="text-gray-400 text-sm flex-1 flex items-center justify-center text-center px-4">No financial plan set for this month.</div>
           )}
         </div>
       </div>
