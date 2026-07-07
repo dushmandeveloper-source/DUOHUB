@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download } from 'lucide-react';
 import { notificationSupport, requestNotificationPermission, showSystemNotification, getNotifyTime, setNotifyTime, enableBackgroundCheck } from '../notifications';
-import { canInstall, isInstalled, isIOS, promptInstall, onInstallChange } from '../install';
+import { canInstall, isInstalled, promptInstall, onInstallChange, getInstallSteps } from '../install';
 import { CURRENCIES } from '../lib/currency';
 
 function InstallApp() {
@@ -43,15 +43,11 @@ function InstallApp() {
         <button onClick={handleInstall} className="w-full sm:w-auto bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm text-sm flex items-center justify-center gap-2">
           <Download size={16} /> Install Now
         </button>
-      ) : isIOS() ? (
-        <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <p className="font-semibold text-gray-700 mb-1">To install on iPhone:</p>
-          <p>Open this site in <strong>Safari</strong>, tap the <strong>Share</strong> button, then choose <strong>"Add to Home Screen"</strong>. Apple does not allow apps to trigger this automatically.</p>
-        </div>
       ) : (
         <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <p className="font-semibold text-gray-700 mb-1">Install option not available right now.</p>
-          <p>Use <strong>Chrome</strong> and open the browser menu (⋮) → <strong>"Add to Home screen"</strong> / <strong>"Install app"</strong>. If you just opened the page, wait a few seconds and revisit this tab — the button appears once the browser allows it.</p>
+          <p className="font-semibold text-gray-700 mb-1">How to install in this browser:</p>
+          <p>{getInstallSteps()}</p>
+          <p className="text-xs text-gray-400 mt-2">Some browsers (Safari, Firefox) don't allow websites to start the install automatically — these are the manual steps for yours.</p>
         </div>
       )}
     </div>
