@@ -17,13 +17,15 @@ const logSyncError = (err) => console.error('Cloud sync failed:', err);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [users, setUsers] = useLocalStorage('duohub:v2:users', INITIAL_USERS);
+  // Only the "who is using this device" toggle is remembered locally —
+  // all data lives in the database and is fetched fresh on every load.
   const [currentUserId, setCurrentUserId] = useLocalStorage('duohub:v2:currentUserId', 'u1');
 
-  const [expenses, setExpenses] = useLocalStorage('duohub:v2:expenses', INITIAL_EXPENSES);
-  const [todos, setTodos] = useLocalStorage('duohub:v2:todos', INITIAL_TODOS);
-  const [savingsGoal, setSavingsGoal] = useLocalStorage('duohub:v2:savingsGoal', INITIAL_SAVINGS_GOAL);
-  const [monthlyPlans, setMonthlyPlans] = useLocalStorage('duohub:v2:monthlyPlans', INITIAL_PLAN);
+  const [users, setUsers] = useState(INITIAL_USERS);
+  const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
+  const [todos, setTodos] = useState(INITIAL_TODOS);
+  const [savingsGoal, setSavingsGoal] = useState(INITIAL_SAVINGS_GOAL);
+  const [monthlyPlans, setMonthlyPlans] = useState(INITIAL_PLAN);
   const [notification, setNotification] = useState(null);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
 
@@ -43,7 +45,7 @@ export default function App() {
       logSyncError(err);
       setCloudStatus('error');
     }
-  }, [setUsers, setExpenses, setTodos, setMonthlyPlans, setSavingsGoal]);
+  }, []);
 
   useEffect(() => {
     if (!isCloudEnabled) return;
@@ -237,7 +239,12 @@ export default function App() {
           </div>
         </header>
 
-        {renderTab()}
+        {cloudStatus === 'connecting' ? (
+          <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+            <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+            <p className="text-sm font-medium">Loading your data from the database…</p>
+          </div>
+        ) : renderTab()}
       </div>
 
       {/* MOBILE NAV (Bottom) */}
