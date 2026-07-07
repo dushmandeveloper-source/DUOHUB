@@ -1,6 +1,12 @@
 // System (device) notifications — shows in the OS notification bar.
-// Works while the app is open or installed as a PWA. Notifications while the
-// app is fully closed require Web Push from a server (planned with Supabase).
+// Permission is requested like any mobile app; on Android an installed PWA
+// gets a native-style permission prompt and native-looking notifications.
+
+const TIME_KEY = 'duohub:notifyTime';
+
+// Daily check time, 'HH:MM' 24h format. Per device (each phone has its own).
+export const getNotifyTime = () => localStorage.getItem(TIME_KEY) || '08:00';
+export const setNotifyTime = (time) => localStorage.setItem(TIME_KEY, time);
 
 export function notificationSupport() {
   if (!('Notification' in window)) return 'unsupported';
@@ -37,4 +43,22 @@ export async function showSystemNotification(title, body, tag = 'duohub') {
   } catch {
     return false;
   }
+}
+
+// Registers a periodic background check so due-task alerts can fire even when
+// the app is closed. Supported on Android Chrome when the app is installed to
+// the home screen; the browser decides the exact timing (roughly daily).
+export async function enableBackgroundCheck() {
+  try {
+    const reg = await navigator.serviceWorker?.ready;
+    if (reg && 'periodicSync' in reg) {
+      await reg.periodicSync.register('duohub-due-check', {
+        minInterval: 6 * 60 * 60 * 1000, // at most every ~6h, browser-controlled
+      });
+      return true;
+    }
+  } catch {
+    // not supported or permission missing — in-app daily check still works
+  }
+  return false;
 }

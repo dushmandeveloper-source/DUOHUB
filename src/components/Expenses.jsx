@@ -1,9 +1,48 @@
-
 import { useState, useMemo } from 'react';
-import { Filter, Trash2 } from 'lucide-react';
+import { Filter, Trash2, Plus } from 'lucide-react';
 import { monthLabel } from '../data';
+import { formatMoney } from '../lib/currency';
 
-export default function Expenses({ expenses, users, categories, availableMonths, onDelete }) {
+function AddExpenseForm({ onAdd, categories, currentUser }) {
+  const today = new Date().toISOString().split('T')[0];
+  const [amount, setAmount] = useState('');
+  const [desc, setDesc] = useState('');
+  const [cat, setCat] = useState('groceries');
+  const [date, setDate] = useState(today);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!amount || !desc) return;
+    onAdd({ amount: parseFloat(amount), desc, category: cat, date: date || today });
+    setAmount('');
+    setDesc('');
+    setDate(today);
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
+      <h3 className="text-lg font-bold mb-4">Add Expense <span className="text-xs font-medium text-gray-400">(paid by {currentUser.name})</span></h3>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <input type="number" step="0.01" min="0" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+        <input type="text" placeholder="What was it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm lg:col-span-2" />
+        <select value={cat} onChange={(e) => setCat(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+          <optgroup label="Everyday">
+            {categories.filter(c => c.type === 'Variable').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </optgroup>
+          <optgroup label="Fixed Bills">
+            {categories.filter(c => c.type === 'Fixed').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </optgroup>
+        </select>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-600" />
+        <button type="submit" className="sm:col-span-2 lg:col-span-5 bg-gray-900 text-white rounded-xl px-6 py-3 font-medium hover:bg-gray-800 transition-colors active:scale-95 text-sm flex items-center justify-center gap-2">
+          <Plus size={16} /> Add Expense
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export default function Expenses({ expenses, users, categories, availableMonths, onAdd, onDelete, currentUser }) {
   const [filterMonth, setFilterMonth] = useState('all');
 
   const groupedExpenses = useMemo(() => {
@@ -20,7 +59,9 @@ export default function Expenses({ expenses, users, categories, availableMonths,
   const visibleGroups = Object.entries(groupedExpenses).filter(([monthYear]) => filterMonth === 'all' || filterMonth === monthYear);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
+      <AddExpenseForm onAdd={onAdd} categories={categories} currentUser={currentUser} />
+
       <div>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
           <h3 className="text-lg font-bold">Expense History</h3>
@@ -48,14 +89,14 @@ export default function Expenses({ expenses, users, categories, availableMonths,
                         <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center shrink-0">{CategoryIcon && <CategoryIcon size={20} />}</div>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-sm md:text-base truncate">{exp.desc}</p>
-                          <p className="text-xs text-gray-400">{exp.date} • {category?.name}</p>
+                          <p className="text-xs text-gray-400">{exp.date} • {category?.name || 'Other'}</p>
                         </div>
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 pl-14 sm:pl-0">
-                        <span className="font-bold text-base md:text-lg">${exp.amount.toFixed(2)}</span>
+                        <span className="font-bold text-base md:text-lg">{formatMoney(exp.amount, user?.currency)}</span>
                         <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold text-white shrink-0 ${user?.color || 'bg-gray-400'}`} title={`Paid by ${user?.name || 'Unknown'}`}>{user?.name.charAt(0) || '?'}</div>
                         <button
-                          onClick={() => { if (window.confirm(`Delete "${exp.desc}" ($${exp.amount.toFixed(2)})?`)) onDelete(exp.id); }}
+                          onClick={() => { if (window.confirm(`Delete "${exp.desc}" (${formatMoney(exp.amount, user?.currency)})?`)) onDelete(exp.id); }}
                           className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0"
                           title="Delete expense"
                         >

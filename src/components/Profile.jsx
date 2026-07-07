@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TrendingDown, User, Bell, Trash2 } from 'lucide-react';
-import { notificationSupport, requestNotificationPermission, showSystemNotification } from '../notifications';
+import { notificationSupport, requestNotificationPermission, showSystemNotification, getNotifyTime, setNotifyTime, enableBackgroundCheck } from '../notifications';
+import { CURRENCIES } from '../lib/currency';
 
 function ResetRecords({ expenses, todos, onReset }) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -62,13 +63,22 @@ function ResetRecords({ expenses, todos, onReset }) {
 
 function NotificationSettings() {
   const [status, setStatus] = useState(notificationSupport());
+  const [checkTime, setCheckTime] = useState(getNotifyTime());
 
   const handleEnable = async () => {
     const result = await requestNotificationPermission();
     setStatus(result);
     if (result === 'granted') {
+      enableBackgroundCheck();
       showSystemNotification('DuoHub notifications enabled', "You'll get an alert here when tasks are due.");
     }
+  };
+
+  const handleTimeChange = (e) => {
+    const time = e.target.value;
+    if (!time) return;
+    setCheckTime(time);
+    setNotifyTime(time);
   };
 
   const statusInfo = {
@@ -102,8 +112,13 @@ function NotificationSettings() {
           </button>
         )}
       </div>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-5 pt-5 border-t border-gray-100">
+        <label className="font-semibold text-gray-700 text-sm md:text-base sm:w-48 shrink-0">Daily check time</label>
+        <input type="time" value={checkTime} onChange={handleTimeChange} className="w-full sm:w-40 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm text-gray-700" />
+        <p className="text-xs text-gray-400 sm:flex-1">Due-task alerts fire after this time each day (this device).</p>
+      </div>
       <p className="text-[11px] md:text-xs text-gray-400 mt-4">
-        Alerts fire while the app is open or installed on your home screen. On iPhone, install the app to your home screen first (iOS 16.4+).
+        Alerts fire while the app is open or installed on your home screen. On Android, installing the app also enables background checks so alerts arrive even when the app is closed. On iPhone, install the app to your home screen first (iOS 16.4+).
       </p>
     </div>
   );
@@ -112,6 +127,15 @@ function NotificationSettings() {
 export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset }) {
   const [u1Name, setU1Name] = useState(users[0].name);
   const [u2Name, setU2Name] = useState(users[1].name);
+  const [u1Currency, setU1Currency] = useState(users[0].currency || 'USD');
+  const [u2Currency, setU2Currency] = useState(users[1].currency || 'USD');
+
+  useEffect(() => {
+    setU1Name(users[0].name);
+    setU2Name(users[1].name);
+    setU1Currency(users[0].currency || 'USD');
+    setU2Currency(users[1].currency || 'USD');
+  }, [users]);
 
   const [planMonth, setPlanMonth] = useState(currentMonthStr);
   const [income, setIncome] = useState(monthlyPlans[planMonth]?.income ?? '');
@@ -125,7 +149,7 @@ export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdate
 
   const handleProfileSubmit = (e) => {
     e.preventDefault();
-    onUpdateProfile(u1Name, u2Name);
+    onUpdateProfile({ name: u1Name, currency: u1Currency }, { name: u2Name, currency: u2Currency });
   };
 
   const handlePlanSubmit = (e) => {
@@ -158,15 +182,13 @@ export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdate
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
             <label className="font-semibold text-gray-700 w-full sm:w-32 shrink-0 text-sm md:text-base">Total Income</label>
             <div className="relative w-full sm:flex-1">
-              <span className="absolute left-4 top-3 text-gray-400">$</span>
-              <input type="number" value={income} onChange={(e) => setIncome(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="e.g. 6000" />
+              <input type="number" value={income} onChange={(e) => setIncome(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="e.g. 6000" />
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
             <label className="font-semibold text-gray-700 w-full sm:w-32 shrink-0 text-sm md:text-base">Target Savings</label>
             <div className="relative w-full sm:flex-1">
-              <span className="absolute left-4 top-3 text-gray-400">$</span>
-              <input type="number" value={targetSavings} onChange={(e) => setTargetSavings(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="e.g. 1500" />
+              <input type="number" value={targetSavings} onChange={(e) => setTargetSavings(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="e.g. 1500" />
             </div>
           </div>
           <div className="pt-2 flex justify-end">
@@ -193,6 +215,10 @@ export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdate
                 <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold shrink-0">{u1Name.charAt(0) || '1'}</div>
                 <input type="text" value={u1Name} onChange={(e) => setU1Name(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
+              <label className="font-semibold text-gray-700 block text-sm md:text-base pt-2">Person 1 Currency</label>
+              <select value={u1Currency} onChange={(e) => setU1Currency(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.label}</option>)}
+              </select>
             </div>
             <div className="space-y-2">
               <label className="font-semibold text-gray-700 block text-sm md:text-base">Person 2 Name</label>
@@ -200,6 +226,10 @@ export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdate
                 <div className="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold shrink-0">{u2Name.charAt(0) || '2'}</div>
                 <input type="text" value={u2Name} onChange={(e) => setU2Name(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm" />
               </div>
+              <label className="font-semibold text-gray-700 block text-sm md:text-base pt-2">Person 2 Currency</label>
+              <select value={u2Currency} onChange={(e) => setU2Currency(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm">
+                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.label}</option>)}
+              </select>
             </div>
           </div>
           <div className="pt-4 flex justify-end border-t border-gray-100">

@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Home, CreditCard, CheckSquare, PieChart as PieChartIcon, User, WifiOff, RefreshCw } from 'lucide-react';
-import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_SAVINGS_GOAL, monthLabel } from './data';
+import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { showSystemNotification } from './notifications';
+import { showSystemNotification, getNotifyTime, enableBackgroundCheck } from './notifications';
 import { isCloudEnabled } from './lib/supabase';
 import * as db from './lib/db';
 import { NavItem, MobileNavItem } from './components/Nav';
@@ -24,23 +24,24 @@ export default function App() {
   const [users, setUsers] = useState(INITIAL_USERS);
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
   const [todos, setTodos] = useState(INITIAL_TODOS);
-  const [savingsGoal, setSavingsGoal] = useState(INITIAL_SAVINGS_GOAL);
+  const [savingsGoals, setSavingsGoals] = useState({ u1: INITIAL_GOAL, u2: INITIAL_GOAL });
   const [monthlyPlans, setMonthlyPlans] = useState(INITIAL_PLAN);
   const [notification, setNotification] = useState(null);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
 
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
+  const currentGoal = savingsGoals[currentUser.id] || INITIAL_GOAL;
 
   // --- Cloud sync: initial load + realtime updates from the other device ---
   const loadFromCloud = useCallback(async () => {
     setCloudStatus('connecting');
     try {
       const data = await db.fetchAll();
-      setUsers(prev => prev.map(u => ({ ...u, name: data.names[u.id] ?? u.name })));
+      setUsers(prev => prev.map(u => ({ ...u, ...(data.profiles[u.id] || {}) })));
       setExpenses(data.expenses);
       setTodos(data.todos);
       setMonthlyPlans(data.plans);
-      if (data.goal) setSavingsGoal(data.goal);
+      setSavingsGoals(prev => ({ ...prev, ...data.goals }));
       setCloudStatus('online');
     } catch (err) {
       logSyncError(err);
@@ -54,6 +55,13 @@ export default function App() {
     const channel = db.subscribeToChanges(() => loadFromCloud());
     return () => db.unsubscribe(channel);
   }, [loadFromCloud]);
+
+  // Register the background due-task check once notifications are allowed
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      enableBackgroundCheck();
+    }
+  }, []);
 
   // Generate available months including +/- 3 months from today for planning
   const availableMonths = useMemo(() => {
@@ -78,11 +86,19 @@ export default function App() {
   const currentMonthStr = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const [selectedDashboardMonth, setSelectedDashboardMonth] = useState(currentMonthStr);
 
+  // Due-task check: in-app banner always; device notification once per day,
+  // only after the check time configured in Settings.
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const dueTasks = todos.filter(t => !t.completed && t.dueDate && t.dueDate <= today);
+    const check = () => {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const dueTasks = todos.filter(t => !t.completed && t.dueDate && t.dueDate <= today);
 
-    if (dueTasks.length > 0) {
+      if (dueTasks.length === 0) {
+        setNotification(null);
+        return;
+      }
+
       const taskNames = dueTasks.map(t => t.text).join(', ');
       setNotification({
         title: 'Tasks Need Attention',
@@ -90,15 +106,18 @@ export default function App() {
         type: 'warning'
       });
 
-      // Device notification bar alert — at most once per day
+      const pad = (n) => String(n).padStart(2, '0');
+      const nowTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
       const stampKey = 'duohub:lastDueNotifyDate';
-      if (localStorage.getItem(stampKey) !== today) {
+      if (nowTime >= getNotifyTime() && localStorage.getItem(stampKey) !== today) {
         showSystemNotification('DuoHub — tasks need attention', `Due/Overdue: ${taskNames}`, 'duohub-due')
           .then(shown => { if (shown) localStorage.setItem(stampKey, today); });
       }
-    } else {
-      setNotification(null);
-    }
+    };
+
+    check();
+    const interval = setInterval(check, 5 * 60 * 1000); // re-check every 5 minutes while open
+    return () => clearInterval(interval);
   }, [todos]);
 
   const toggleUser = () => {
@@ -111,6 +130,11 @@ export default function App() {
     const expense = { ...newExpense, id: Date.now(), paidBy: currentUser.id };
     setExpenses(prev => [expense, ...prev]);
     if (isCloudEnabled) db.addExpense(expense).catch(logSyncError);
+  };
+
+  const deleteExpense = (id) => {
+    setExpenses(prev => prev.filter(e => e.id !== id));
+    if (isCloudEnabled) db.deleteExpense(id).catch(logSyncError);
   };
 
   const toggleTodo = (id) => {
@@ -128,34 +152,6 @@ export default function App() {
     if (isCloudEnabled) db.addTodo(todo).catch(logSyncError);
   };
 
-  const addSavings = (amount) => {
-    if (!Number.isFinite(amount)) return;
-    const next = { ...savingsGoal, current: savingsGoal.current + amount };
-    setSavingsGoal(next);
-    if (isCloudEnabled) db.updateGoal(next).catch(logSyncError);
-  };
-
-  const updateSavingsGoal = (name, target) => {
-    const next = { ...savingsGoal, name, target: parseFloat(target) || 0 };
-    setSavingsGoal(next);
-    if (isCloudEnabled) db.updateGoal(next).catch(logSyncError);
-  };
-
-  const updatePlan = (month, income, savings) => {
-    const parsedIncome = parseFloat(income) || 0;
-    const parsedSavings = parseFloat(savings) || 0;
-    setMonthlyPlans(prev => ({
-      ...prev,
-      [month]: { income: parsedIncome, targetSavings: parsedSavings }
-    }));
-    if (isCloudEnabled) db.upsertPlan(month, parsedIncome, parsedSavings).catch(logSyncError);
-  };
-
-  const deleteExpense = (id) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
-    if (isCloudEnabled) db.deleteExpense(id).catch(logSyncError);
-  };
-
   const deleteTodo = (id) => {
     setTodos(prev => prev.filter(t => t.id !== id));
     if (isCloudEnabled) db.deleteTodo(id).catch(logSyncError);
@@ -171,19 +167,42 @@ export default function App() {
     }
   };
 
-  const updateProfile = (u1Name, u2Name) => {
+  const addSavings = (amount) => {
+    if (!Number.isFinite(amount)) return;
+    const next = { ...currentGoal, current: currentGoal.current + amount };
+    setSavingsGoals(prev => ({ ...prev, [currentUser.id]: next }));
+    if (isCloudEnabled) db.updateGoal(currentUser.id, next).catch(logSyncError);
+  };
+
+  const updateSavingsGoal = (name, target) => {
+    const next = { ...currentGoal, name, target: parseFloat(target) || 0 };
+    setSavingsGoals(prev => ({ ...prev, [currentUser.id]: next }));
+    if (isCloudEnabled) db.updateGoal(currentUser.id, next).catch(logSyncError);
+  };
+
+  const updatePlan = (month, income, savings) => {
+    const parsedIncome = parseFloat(income) || 0;
+    const parsedSavings = parseFloat(savings) || 0;
+    setMonthlyPlans(prev => ({
+      ...prev,
+      [month]: { income: parsedIncome, targetSavings: parsedSavings }
+    }));
+    if (isCloudEnabled) db.upsertPlan(month, parsedIncome, parsedSavings).catch(logSyncError);
+  };
+
+  const updateProfile = (u1, u2) => {
     setUsers(prev => [
-      { ...prev[0], name: u1Name },
-      { ...prev[1], name: u2Name }
+      { ...prev[0], ...u1 },
+      { ...prev[1], ...u2 }
     ]);
-    if (isCloudEnabled) db.updateProfileNames(u1Name, u2Name).catch(logSyncError);
+    if (isCloudEnabled) db.updateProfiles(u1, u2).catch(logSyncError);
   };
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard expenses={expenses} savingsGoal={savingsGoal} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={monthlyPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={todos} onToggleTodo={toggleTodo} />;
-      case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onDelete={deleteExpense} />;
-      case 'analytics': return <Analytics expenses={expenses} categories={CATEGORIES} />;
+      case 'dashboard': return <Dashboard expenses={expenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={monthlyPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={todos} onToggleTodo={toggleTodo} />;
+      case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
+      case 'analytics': return <Analytics expenses={expenses} categories={CATEGORIES} currency={currentUser.currency} />;
       case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
       case 'profile': return <Profile users={users} onUpdateProfile={updateProfile} monthlyPlans={monthlyPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} />;
       default: return null;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Plus, Filter, Calendar, CheckSquare, Trash2 } from 'lucide-react';
+import { Plus, Filter, Calendar, CheckSquare, Trash2, Bell } from 'lucide-react';
 import { monthLabel } from '../data';
+import { getNotifyTime } from '../notifications';
 
 export default function Todos({ todos, onToggle, onAdd, onDelete, users, currentUser, availableMonths }) {
   const [task, setTask] = useState('');
@@ -62,6 +63,11 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
           <Plus size={20} className="hidden md:block" /><span className="md:hidden font-bold">Add Task</span>
         </button>
       </form>
+      {dueDate && (
+        <p className="text-xs text-gray-400 flex items-center gap-1.5 -mt-3 px-2">
+          <Bell size={12} /> You'll get an alert for this task on {dueDate} after {getNotifyTime()} (change the time in Profile settings).
+        </p>
+      )}
 
       <div className="space-y-2">
         {filteredTodos.map(todo => {

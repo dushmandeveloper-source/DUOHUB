@@ -1,17 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
+import { formatMoney } from '../lib/currency';
 
-export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo }) {
+export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo }) {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [editName, setEditName] = useState(savingsGoal.name);
   const [editTarget, setEditTarget] = useState(savingsGoal.target);
   const [addAmount, setAddAmount] = useState('');
 
+  const fm = (value) => formatMoney(value, currentUser.currency);
+
+  // Keep the edit form in sync when switching between the two users' goals
+  useEffect(() => {
+    setEditName(savingsGoal.name);
+    setEditTarget(savingsGoal.target);
+    setIsEditingGoal(false);
+  }, [savingsGoal]);
+
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
-  const [cat, setCat] = useState(categories[2].id);
+  const [cat, setCat] = useState('groceries');
 
   const handleSaveGoal = () => {
     onUpdateGoal(editName, editTarget);
@@ -78,7 +88,7 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
               </div>
               <p className="text-sm text-gray-500 font-medium leading-tight">Income Limit</p>
             </div>
-            <p className="text-xl md:text-2xl font-bold">${currentPlan.income.toLocaleString()}</p>
+            <p className="text-xl md:text-2xl font-bold">{fm(currentPlan.income)}</p>
           </div>
 
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
@@ -88,7 +98,7 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
               </div>
               <p className="text-sm text-gray-500 font-medium leading-tight">To Save</p>
             </div>
-            <p className="text-xl md:text-2xl font-bold">${currentPlan.targetSavings.toLocaleString()}</p>
+            <p className="text-xl md:text-2xl font-bold">{fm(currentPlan.targetSavings)}</p>
           </div>
 
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
@@ -98,7 +108,7 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
               </div>
               <p className="text-sm text-gray-500 font-medium leading-tight">Safe to Spend</p>
             </div>
-            <p className="text-xl md:text-2xl font-bold">${budgetAllowed.toLocaleString()}</p>
+            <p className="text-xl md:text-2xl font-bold">{fm(budgetAllowed)}</p>
 
             <div className="mt-3">
               <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
@@ -108,7 +118,7 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
                 ></div>
               </div>
               <p className="text-[10px] font-bold text-right mt-1 text-gray-400 uppercase tracking-wider">
-                {spendPercent.toFixed(0)}% Used (${remainingBudget.toLocaleString()} left)
+                {spendPercent.toFixed(0)}% Used ({fm(remainingBudget)} left)
               </p>
             </div>
           </div>
@@ -123,7 +133,7 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
                   <Pie data={chartData} cx="50%" cy="50%" innerRadius="50%" outerRadius="75%" paddingAngle={4} dataKey="value" stroke="none">
                     {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
+                  <Tooltip formatter={(value) => fm(value)} />
                   <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', lineHeight: '16px' }} />
                 </PieChart>
               </ResponsiveContainer>
@@ -137,10 +147,15 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
         <h3 className="text-lg font-bold mb-4">Quick Log Expense</h3>
         <form onSubmit={handleQuickExpense} className="flex flex-col sm:flex-row gap-3">
-          <input type="number" step="0.01" min="0" placeholder="$ Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full sm:w-32 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+          <input type="number" step="0.01" min="0" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full sm:w-32 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
           <input type="text" placeholder="What did you buy?" value={desc} onChange={(e) => setDesc(e.target.value)} className="w-full sm:flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
           <select value={cat} onChange={(e) => setCat(e.target.value)} className="w-full sm:w-48 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <optgroup label="Everyday">
+              {categories.filter(c => c.type === 'Variable').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </optgroup>
+            <optgroup label="Fixed Bills">
+              {categories.filter(c => c.type === 'Fixed').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </optgroup>
           </select>
           <button type="submit" className="w-full sm:w-auto bg-gray-900 text-white rounded-xl px-6 py-3 font-medium hover:bg-gray-800 transition-colors active:scale-95 text-sm shrink-0">Save</button>
         </form>
@@ -152,7 +167,7 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
 
           <div className="relative z-10 w-full mb-6">
             <div className="flex justify-between items-center mb-1">
-              <h3 className="text-indigo-200 font-medium text-xs md:text-sm tracking-wider uppercase">Our Next Adventure</h3>
+              <h3 className="text-indigo-200 font-medium text-xs md:text-sm tracking-wider uppercase">{currentUser.name}'s Savings Goal</h3>
               {!isEditingGoal && (
                 <button onClick={() => setIsEditingGoal(true)} className="text-indigo-200 hover:text-white transition-colors p-2" title="Edit Goal">
                   <Edit2 size={16} />
@@ -165,8 +180,7 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
                 <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-indigo-950/50 border border-indigo-500/50 rounded-lg px-3 py-2 text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm" placeholder="Goal Name" />
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative w-full sm:flex-1">
-                    <span className="absolute left-3 top-2 text-indigo-300">$</span>
-                    <input type="number" value={editTarget} onChange={(e) => setEditTarget(e.target.value)} className="w-full bg-indigo-950/50 border border-indigo-500/50 rounded-lg pl-8 pr-3 py-2 text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm" placeholder="Target Amount" />
+                    <input type="number" value={editTarget} onChange={(e) => setEditTarget(e.target.value)} className="w-full bg-indigo-950/50 border border-indigo-500/50 rounded-lg px-3 py-2 text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm" placeholder="Target Amount" />
                   </div>
                   <button onClick={handleSaveGoal} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2 rounded-lg flex justify-center items-center gap-1 font-medium transition-colors text-sm">
                     <Save size={16} /> Save
@@ -181,13 +195,13 @@ export default function Dashboard({ expenses, savingsGoal, onAddSavings, onUpdat
               <div className="bg-gradient-to-r from-emerald-400 to-emerald-300 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: progressPercent + '%' }}></div>
             </div>
             <div className="flex justify-between text-xs md:text-sm font-medium">
-              <span>${savingsGoal.current.toLocaleString()} saved</span>
-              <span className="text-indigo-200">${savingsGoal.target.toLocaleString()} target</span>
+              <span>{fm(savingsGoal.current)} saved</span>
+              <span className="text-indigo-200">{fm(savingsGoal.target)} target</span>
             </div>
           </div>
 
           <div className="relative z-10 flex flex-row gap-2 items-center w-full mt-auto">
-            <input type="number" step="0.01" min="0" placeholder="$ Amount" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-24 sm:w-32 bg-white/10 border border-white/20 rounded-xl px-3 py-2 md:px-4 md:py-3 text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-white/50 text-sm" />
+            <input type="number" step="0.01" min="0" placeholder="Amount" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-24 sm:w-32 bg-white/10 border border-white/20 rounded-xl px-3 py-2 md:px-4 md:py-3 text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-white/50 text-sm" />
             <button onClick={() => { if(addAmount) { onAddSavings(parseFloat(addAmount)); setAddAmount(''); } }} className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40 px-3 py-2 md:px-6 md:py-3 rounded-xl transition-all font-medium flex justify-center items-center gap-2 active:scale-95 text-xs md:text-sm">
               <Plus size={16} className="shrink-0" /> Add
             </button>
