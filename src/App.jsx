@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Home, CreditCard, CheckSquare, PieChart as PieChartIcon, User, WifiOff, RefreshCw } from 'lucide-react';
+import { Home, CreditCard, CheckSquare, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon } from 'lucide-react';
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { showSystemNotification, getNotifyTime, enableBackgroundCheck } from './notifications';
@@ -20,6 +20,11 @@ export default function App() {
   // Only the "who is using this device" toggle is remembered locally —
   // all data lives in the database and is fetched fresh on every load.
   const [currentUserId, setCurrentUserId] = useLocalStorage('duohub:v2:currentUserId', 'u1');
+  const [theme, setTheme] = useLocalStorage('duohub:theme', 'light');
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
 
   const [users, setUsers] = useState(INITIAL_USERS);
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
@@ -229,6 +234,13 @@ export default function App() {
           </div>
           <span className="text-lg md:text-xl font-extrabold tracking-tight">DuoHub</span>
           <span className={`w-2 h-2 rounded-full ${syncIndicator.color}`} title={syncIndicator.label}></span>
+          <button
+            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors ml-1"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
         </div>
 
         <div className="flex items-center bg-gray-100 rounded-full p-1 cursor-pointer hover:bg-gray-200 transition-colors shrink-0" onClick={toggleUser}>
