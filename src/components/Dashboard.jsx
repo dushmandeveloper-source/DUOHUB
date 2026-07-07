@@ -46,6 +46,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
   const budgetAllowed = currentPlan.income - currentPlan.targetSavings;
   const remainingBudget = Math.max(0, budgetAllowed - totalSpent);
   const availableBalance = currentPlan.income - totalSpent;
+  const monthSavingsDeposits = monthExpenses.filter(e => e.category === 'savings-deposit').reduce((acc, curr) => acc + curr.amount, 0);
 
   const spendPercent = budgetAllowed > 0 ? Math.min(100, (totalSpent / budgetAllowed) * 100) : 0;
   const progressPercent = savingsGoal.target > 0 ? Math.min(100, Math.round((savingsGoal.current / savingsGoal.target) * 100)) : 0;
@@ -137,7 +138,18 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
             <p className="text-[10px] font-bold mt-1 text-gray-400 uppercase tracking-wider">Income − Spent</p>
           </div>
 
-          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center sm:col-span-2">
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                <PiggyBank size={20} />
+              </div>
+              <p className="text-sm text-gray-500 font-medium leading-tight">Savings Deposits</p>
+            </div>
+            <p className="text-xl md:text-2xl font-bold text-emerald-600">{fm(monthSavingsDeposits)}</p>
+            <p className="text-[10px] font-bold mt-1 text-gray-400 uppercase tracking-wider">Included in Spent · Real spending {fm(totalSpent - monthSavingsDeposits)}</p>
+          </div>
+
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
                 <Target size={20} />
