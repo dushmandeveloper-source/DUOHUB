@@ -36,6 +36,11 @@ create table if not exists monthly_plans (
   target_savings double precision not null default 0
 );
 
+create table if not exists category_budgets (
+  category text primary key,                 -- category id, e.g. 'groceries'
+  amount double precision not null default 0 -- monthly limit
+);
+
 create table if not exists savings_goals (
   owner text primary key references profiles(id),  -- one goal per person
   name text not null,
@@ -54,6 +59,14 @@ alter table expenses enable row level security;
 alter table todos enable row level security;
 alter table monthly_plans enable row level security;
 alter table savings_goals enable row level security;
+alter table category_budgets enable row level security;
+drop policy if exists "open access" on category_budgets;
+create policy "open access" on category_budgets for all using (true) with check (true);
+do $$
+begin
+  alter publication supabase_realtime add table category_budgets;
+exception when duplicate_object then null;
+end $$;
 
 drop policy if exists "open access" on profiles;
 drop policy if exists "open access" on expenses;

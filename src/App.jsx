@@ -31,6 +31,7 @@ export default function App() {
   const [todos, setTodos] = useState(INITIAL_TODOS);
   const [savingsGoals, setSavingsGoals] = useState({ u1: INITIAL_GOAL, u2: INITIAL_GOAL });
   const [monthlyPlans, setMonthlyPlans] = useState(INITIAL_PLAN);
+  const [categoryBudgets, setCategoryBudgets] = useState({});
   const [notification, setNotification] = useState(null);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
 
@@ -47,6 +48,7 @@ export default function App() {
       setTodos(data.todos);
       setMonthlyPlans(data.plans);
       setSavingsGoals(prev => ({ ...prev, ...data.goals }));
+      setCategoryBudgets(data.categoryBudgets);
       setCloudStatus('online');
     } catch (err) {
       logSyncError(err);
@@ -195,6 +197,21 @@ export default function App() {
     if (isCloudEnabled) db.upsertPlan(month, parsedIncome, parsedSavings).catch(logSyncError);
   };
 
+  const setCategoryBudget = (category, amount) => {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    setCategoryBudgets(prev => ({ ...prev, [category]: amount }));
+    if (isCloudEnabled) db.upsertCategoryBudget(category, amount).catch(logSyncError);
+  };
+
+  const removeCategoryBudget = (category) => {
+    setCategoryBudgets(prev => {
+      const next = { ...prev };
+      delete next[category];
+      return next;
+    });
+    if (isCloudEnabled) db.deleteCategoryBudget(category).catch(logSyncError);
+  };
+
   const updateProfile = (u1, u2) => {
     setUsers(prev => [
       { ...prev[0], ...u1 },
@@ -207,7 +224,7 @@ export default function App() {
     switch (activeTab) {
       case 'dashboard': return <Dashboard expenses={expenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={monthlyPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={todos} onToggleTodo={toggleTodo} />;
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
-      case 'analytics': return <Analytics expenses={expenses} categories={CATEGORIES} currency={currentUser.currency} />;
+      case 'analytics': return <Analytics expenses={expenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={categoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
       case 'profile': return <Profile users={users} onUpdateProfile={updateProfile} monthlyPlans={monthlyPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} />;
       default: return null;
