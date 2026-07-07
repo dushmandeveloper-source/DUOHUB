@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank } from 'lucide-react';
+import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
 import CategoryPicker from './CategoryPicker';
 
-export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo }) {
+export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo, categoryBudgets }) {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [editName, setEditName] = useState(savingsGoal.name);
   const [editTarget, setEditTarget] = useState(savingsGoal.target);
@@ -59,6 +59,19 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
     .filter(t => !t.completed)
     .sort((a, b) => new Date(a.dueDate || '9999-12-31') - new Date(b.dueDate || '9999-12-31'))
     .slice(0, 4);
+
+  // Per-category spending for the selected month + budget comparison
+  const spentByCategory = {};
+  monthExpenses.forEach(e => { spentByCategory[e.category] = (spentByCategory[e.category] || 0) + e.amount; });
+  const topSpendEntry = Object.entries(spentByCategory).sort((a, b) => b[1] - a[1])[0];
+  const topSpendCategory = topSpendEntry ? categories.find(c => c.id === topSpendEntry[0]) : null;
+  const budgetRows = Object.entries(categoryBudgets || {})
+    .map(([catId, limit]) => {
+      const spent = spentByCategory[catId] || 0;
+      const pct = limit > 0 ? (spent / limit) * 100 : 0;
+      return { catId, limit, spent, pct, category: categories.find(c => c.id === catId) };
+    })
+    .sort((a, b) => b.pct - a.pct);
 
   return (
     <div className="space-y-6">
@@ -143,6 +156,46 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
             <div className="text-gray-400 text-sm flex-1 flex items-center justify-center text-center px-4">No financial plan set for this month.</div>
           )}
         </div>
+      </div>
+
+      {/* CATEGORY BUDGETS for the selected month */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <h3 className="text-lg font-bold">Category Budgets — {selectedMonth}</h3>
+          {topSpendEntry && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full self-start sm:self-auto">
+              <TrendingDown size={13} /> Highest spend: {topSpendCategory?.name || topSpendEntry[0]} · {fm(topSpendEntry[1])}
+            </span>
+          )}
+        </div>
+
+        {budgetRows.length > 0 ? (
+          <div className="space-y-4">
+            {budgetRows.map(({ catId, limit, spent, pct, category }) => {
+              const Icon = category?.icon;
+              const barColor = pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-400' : 'bg-green-500';
+              const textColor = pct >= 100 ? 'text-red-600' : pct >= 80 ? 'text-amber-600' : 'text-gray-400';
+              return (
+                <div key={catId}>
+                  <div className="flex items-center justify-between mb-1.5 gap-2">
+                    <span className="flex items-center gap-2 text-sm font-medium text-gray-700 min-w-0">
+                      {Icon && <Icon size={15} className="text-gray-400 shrink-0" />}
+                      <span className="truncate">{category?.name || catId}</span>
+                    </span>
+                    <span className={`text-xs font-bold shrink-0 ${textColor}`}>
+                      {fm(spent)} / {fm(limit)}{pct >= 100 && ' — over!'}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: Math.min(100, pct) + '%' }}></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">No category limits set yet — add them in the Analytics tab under "Category Budgets".</p>
+        )}
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
