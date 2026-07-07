@@ -278,7 +278,8 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex-1 p-4 md:p-8 w-full max-w-6xl mx-auto overflow-y-auto pb-24 md:pb-8 h-[calc(100vh-4rem)] md:h-screen">
+      <div className="flex-1 overflow-y-auto h-[calc(100vh-4rem)] md:h-screen">
+        <div className="p-4 md:p-8 w-full max-w-6xl mx-auto pb-24 md:pb-8">
         <header className="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">
@@ -305,6 +306,7 @@ export default function App() {
             </button>
           </div>
         ) : renderTab()}
+        </div>
       </div>
 
       {/* MOBILE NAV (Bottom) */}
