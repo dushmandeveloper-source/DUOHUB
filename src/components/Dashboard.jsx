@@ -93,6 +93,38 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
         </select>
       </div>
 
+      {/* UPCOMING ACTION ITEMS */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6 flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Upcoming Action Items</h3>
+        </div>
+
+        <div className="space-y-3 flex-1">
+          {pendingTodos.length > 0 ? pendingTodos.map(todo => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const isDue = todo.dueDate && todo.dueDate <= todayStr;
+            return (
+              <div key={todo.id} className="flex items-start md:items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 cursor-pointer hover:border-gray-300 transition-all" onClick={() => onToggleTodo(todo.id)}>
+                <div className="w-5 h-5 rounded border-2 border-gray-300 shrink-0 mt-0.5 md:mt-0"></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 break-words">{todo.text}</p>
+                  {todo.dueDate && (
+                    <p className={`text-xs font-medium flex items-center gap-1 mt-1 md:mt-0.5 ${isDue ? 'text-amber-600' : 'text-gray-400'}`}>
+                      <Calendar size={10} /> {todo.dueDate} {isDue && '(Due!)'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          }) : (
+            <div className="flex flex-col items-center justify-center text-gray-400 py-6">
+              <CheckSquare size={32} className="mb-2 opacity-20" />
+              <p className="text-sm font-medium">All caught up!</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* OVERVIEW CHARTS & STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -244,7 +276,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
         </form>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <div className="bg-gradient-to-br from-indigo-900 to-purple-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
 
@@ -291,36 +323,6 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6 flex flex-col h-full">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold">Upcoming Action Items</h3>
-          </div>
-
-          <div className="space-y-3 flex-1 overflow-y-auto">
-            {pendingTodos.length > 0 ? pendingTodos.map(todo => {
-              const todayStr = new Date().toISOString().split('T')[0];
-              const isDue = todo.dueDate && todo.dueDate <= todayStr;
-              return (
-                <div key={todo.id} className="flex items-start md:items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 cursor-pointer hover:border-gray-300 transition-all" onClick={() => onToggleTodo(todo.id)}>
-                  <div className="w-5 h-5 rounded border-2 border-gray-300 shrink-0 mt-0.5 md:mt-0"></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 break-words">{todo.text}</p>
-                    {todo.dueDate && (
-                      <p className={`text-xs font-medium flex items-center gap-1 mt-1 md:mt-0.5 ${isDue ? 'text-amber-600' : 'text-gray-400'}`}>
-                        <Calendar size={10} /> {todo.dueDate} {isDue && '(Due!)'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )
-            }) : (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 py-8">
-                <CheckSquare size={32} className="mb-2 opacity-20" />
-                <p className="text-sm font-medium">All caught up!</p>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
