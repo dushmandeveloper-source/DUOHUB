@@ -148,6 +148,26 @@ export default function App() {
     if (isCloudEnabled) db.upsertPlan(month, parsedIncome, parsedSavings).catch(logSyncError);
   };
 
+  const deleteExpense = (id) => {
+    setExpenses(prev => prev.filter(e => e.id !== id));
+    if (isCloudEnabled) db.deleteExpense(id).catch(logSyncError);
+  };
+
+  const deleteTodo = (id) => {
+    setTodos(prev => prev.filter(t => t.id !== id));
+    if (isCloudEnabled) db.deleteTodo(id).catch(logSyncError);
+  };
+
+  // Removes all expenses and due-dated tasks within the date range (inclusive)
+  const resetRecords = (startDate, endDate) => {
+    setExpenses(prev => prev.filter(e => e.date < startDate || e.date > endDate));
+    setTodos(prev => prev.filter(t => !t.dueDate || t.dueDate < startDate || t.dueDate > endDate));
+    if (isCloudEnabled) {
+      db.deleteExpensesBetween(startDate, endDate).catch(logSyncError);
+      db.deleteTodosBetween(startDate, endDate).catch(logSyncError);
+    }
+  };
+
   const updateProfile = (u1Name, u2Name) => {
     setUsers(prev => [
       { ...prev[0], name: u1Name },
@@ -159,10 +179,10 @@ export default function App() {
   const renderTab = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard expenses={expenses} savingsGoal={savingsGoal} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={monthlyPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={todos} onToggleTodo={toggleTodo} />;
-      case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} />;
+      case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onDelete={deleteExpense} />;
       case 'analytics': return <Analytics expenses={expenses} categories={CATEGORIES} />;
-      case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
-      case 'profile': return <Profile users={users} onUpdateProfile={updateProfile} monthlyPlans={monthlyPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} />;
+      case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
+      case 'profile': return <Profile users={users} onUpdateProfile={updateProfile} monthlyPlans={monthlyPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} />;
       default: return null;
     }
   };

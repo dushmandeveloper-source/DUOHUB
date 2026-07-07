@@ -1,9 +1,9 @@
 
 import { useState, useMemo } from 'react';
-import { Filter } from 'lucide-react';
+import { Filter, Trash2 } from 'lucide-react';
 import { monthLabel } from '../data';
 
-export default function Expenses({ expenses, users, categories, availableMonths }) {
+export default function Expenses({ expenses, users, categories, availableMonths, onDelete }) {
   const [filterMonth, setFilterMonth] = useState('all');
 
   const groupedExpenses = useMemo(() => {
@@ -54,6 +54,13 @@ export default function Expenses({ expenses, users, categories, availableMonths 
                       <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 pl-14 sm:pl-0">
                         <span className="font-bold text-base md:text-lg">${exp.amount.toFixed(2)}</span>
                         <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold text-white shrink-0 ${user?.color || 'bg-gray-400'}`} title={`Paid by ${user?.name || 'Unknown'}`}>{user?.name.charAt(0) || '?'}</div>
+                        <button
+                          onClick={() => { if (window.confirm(`Delete "${exp.desc}" ($${exp.amount.toFixed(2)})?`)) onDelete(exp.id); }}
+                          className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0"
+                          title="Delete expense"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                   );

@@ -1,6 +1,64 @@
 import { useState, useEffect } from 'react';
-import { TrendingDown, User, Bell } from 'lucide-react';
+import { TrendingDown, User, Bell, Trash2 } from 'lucide-react';
 import { notificationSupport, requestNotificationPermission, showSystemNotification } from '../notifications';
+
+function ResetRecords({ expenses, todos, onReset }) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const toISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const ranges = [
+    { label: 'Today', start: toISO(now), end: toISO(now) },
+    { label: 'This Week', start: toISO(monday), end: toISO(sunday) },
+    { label: 'This Month', start: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), end: toISO(new Date(now.getFullYear(), now.getMonth() + 1, 0)) },
+  ];
+
+  const handleReset = (range) => {
+    const expCount = expenses.filter(e => e.date >= range.start && e.date <= range.end).length;
+    const todoCount = todos.filter(t => t.dueDate && t.dueDate >= range.start && t.dueDate <= range.end).length;
+    if (expCount + todoCount === 0) {
+      window.alert(`No records found for ${range.label.toLowerCase()}.`);
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete ${expCount} expense(s) and ${todoCount} task(s) dated ${range.start} to ${range.end}?\n\nThis cannot be undone.`
+    );
+    if (confirmed) onReset(range.start, range.end);
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-red-100 p-5 md:p-8">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 md:w-12 md:h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center shrink-0">
+          <Trash2 size={20} className="md:w-6 md:h-6" />
+        </div>
+        <div>
+          <h2 className="text-lg md:text-xl font-bold">Reset Records</h2>
+          <p className="text-gray-500 text-xs md:text-sm">Permanently delete all expenses and due-dated tasks for a period.</p>
+        </div>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        {ranges.map(range => (
+          <button
+            key={range.label}
+            onClick={() => handleReset(range)}
+            className="w-full sm:flex-1 bg-red-50 text-red-600 border border-red-200 font-bold py-3 px-4 rounded-xl hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors text-sm"
+          >
+            {range.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] md:text-xs text-gray-400 mt-4">
+        You will be asked to confirm before anything is deleted. Deletions sync to the database and cannot be undone.
+      </p>
+    </div>
+  );
+}
 
 function NotificationSettings() {
   const [status, setStatus] = useState(notificationSupport());
@@ -51,7 +109,7 @@ function NotificationSettings() {
   );
 }
 
-export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr }) {
+export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset }) {
   const [u1Name, setU1Name] = useState(users[0].name);
   const [u2Name, setU2Name] = useState(users[1].name);
 
@@ -149,6 +207,8 @@ export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdate
           </div>
         </form>
       </div>
+
+      <ResetRecords expenses={expenses} todos={todos} onReset={onReset} />
     </div>
   );
 }

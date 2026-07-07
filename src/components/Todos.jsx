@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Plus, Filter, Calendar, CheckSquare } from 'lucide-react';
+import { Plus, Filter, Calendar, CheckSquare, Trash2 } from 'lucide-react';
 import { monthLabel } from '../data';
 
-export default function Todos({ todos, onToggle, onAdd, users, currentUser, availableMonths }) {
+export default function Todos({ todos, onToggle, onAdd, onDelete, users, currentUser, availableMonths }) {
   const [task, setTask] = useState('');
   const [assignTo, setAssignTo] = useState('shared');
   const [dueDate, setDueDate] = useState('');
@@ -78,7 +78,16 @@ export default function Todos({ todos, onToggle, onAdd, users, currentUser, avai
                   {todo.dueDate && (<span className={`text-[10px] md:text-xs font-medium flex items-center gap-1 mt-1 md:mt-0.5 ${dateWarning ? 'text-amber-600' : 'text-gray-400'}`}><Calendar size={10} /> {todo.dueDate} {dateWarning && '(Due!)'}</span>)}
                 </div>
               </div>
-              <span className={`text-[10px] md:text-xs font-bold px-2 py-1 rounded-md ml-3 shrink-0 text-center ${assigneeColor}`}>{assigneeName}</span>
+              <div className="flex items-center gap-1 ml-3 shrink-0">
+                <span className={`text-[10px] md:text-xs font-bold px-2 py-1 rounded-md text-center ${assigneeColor}`}>{assigneeName}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (window.confirm(`Delete task "${todo.text}"?`)) onDelete(todo.id); }}
+                  className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                  title="Delete task"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           );
         })}

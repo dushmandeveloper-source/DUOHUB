@@ -68,6 +68,18 @@ export const addTodo = (todo) =>
 export const setTodoCompleted = (id, completed) =>
   supabase.from('todos').update({ completed }).eq('id', id).then(unwrap);
 
+export const deleteExpense = (id) =>
+  supabase.from('expenses').delete().eq('id', id).then(unwrap);
+
+export const deleteTodo = (id) =>
+  supabase.from('todos').delete().eq('id', id).then(unwrap);
+
+export const deleteExpensesBetween = (startDate, endDate) =>
+  supabase.from('expenses').delete().gte('date', startDate).lte('date', endDate).then(unwrap);
+
+export const deleteTodosBetween = (startDate, endDate) =>
+  supabase.from('todos').delete().gte('due_date', startDate).lte('due_date', endDate).then(unwrap);
+
 export const upsertPlan = (month, income, targetSavings) =>
   supabase.from('monthly_plans').upsert({ month, income, target_savings: targetSavings }).then(unwrap);
 
