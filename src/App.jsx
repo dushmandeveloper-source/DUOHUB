@@ -17,13 +17,13 @@ const logSyncError = (err) => console.error('Cloud sync failed:', err);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [users, setUsers] = useLocalStorage('duohub:users', INITIAL_USERS);
-  const [currentUserId, setCurrentUserId] = useLocalStorage('duohub:currentUserId', 'u1');
+  const [users, setUsers] = useLocalStorage('duohub:v2:users', INITIAL_USERS);
+  const [currentUserId, setCurrentUserId] = useLocalStorage('duohub:v2:currentUserId', 'u1');
 
-  const [expenses, setExpenses] = useLocalStorage('duohub:expenses', INITIAL_EXPENSES);
-  const [todos, setTodos] = useLocalStorage('duohub:todos', INITIAL_TODOS);
-  const [savingsGoal, setSavingsGoal] = useLocalStorage('duohub:savingsGoal', INITIAL_SAVINGS_GOAL);
-  const [monthlyPlans, setMonthlyPlans] = useLocalStorage('duohub:monthlyPlans', INITIAL_PLAN);
+  const [expenses, setExpenses] = useLocalStorage('duohub:v2:expenses', INITIAL_EXPENSES);
+  const [todos, setTodos] = useLocalStorage('duohub:v2:todos', INITIAL_TODOS);
+  const [savingsGoal, setSavingsGoal] = useLocalStorage('duohub:v2:savingsGoal', INITIAL_SAVINGS_GOAL);
+  const [monthlyPlans, setMonthlyPlans] = useLocalStorage('duohub:v2:monthlyPlans', INITIAL_PLAN);
   const [notification, setNotification] = useState(null);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
 

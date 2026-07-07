@@ -101,7 +101,7 @@ exception when duplicate_object then null;
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Seed data (current app records)
+-- Required base rows (no dummy data — all records are created from the app)
 -- ---------------------------------------------------------------------------
 
 insert into profiles (id, name) values
@@ -109,26 +109,6 @@ insert into profiles (id, name) values
   ('u2', 'Hasini')
 on conflict (id) do nothing;
 
-insert into expenses (id, amount, description, category, paid_by, date) values
-  (1, 1500, 'July Rent',         'rent',          'u1', '2026-07-01'),
-  (2,   65, 'Dinner at Mario''s','dining',        'u2', '2026-07-02'),
-  (3,  120, 'Weekly Groceries',  'groceries',     'u1', '2026-07-03'),
-  (4,   45, 'Movie Tickets',     'entertainment', 'u2', '2026-07-03'),
-  (5, 1500, 'June Rent',         'rent',          'u1', '2026-06-01'),
-  (6,   85, 'Date Night',        'dining',        'u2', '2026-06-15')
-on conflict (id) do nothing;
-
-insert into todos (id, text, assignee, completed, due_date) values
-  (1, 'Call landlord about AC',       'u1',     false, '2026-07-03'),
-  (2, 'Plan weekend trip itinerary',  'shared', false, '2026-07-10'),
-  (3, 'Pay electric bill',            'u2',     true,  '2026-06-28')
-on conflict (id) do nothing;
-
-insert into monthly_plans (month, income, target_savings) values
-  ('July 2026', 6000, 1500),
-  ('June 2026', 6000, 1000)
-on conflict (month) do nothing;
-
 insert into savings_goal (id, name, target, current) values
-  (1, 'Paris Trip 2027', 3000, 850)
+  (1, 'Set your savings goal', 0, 0)
 on conflict (id) do nothing;

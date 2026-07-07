@@ -14,27 +14,15 @@ export const CATEGORIES = [
   { id: 'entertainment', name: 'Entertainment', icon: Target, type: 'Variable' }
 ];
 
-export const INITIAL_EXPENSES = [
-  { id: 1, amount: 1500, desc: 'July Rent', category: 'rent', paidBy: 'u1', date: '2026-07-01' },
-  { id: 2, amount: 65, desc: "Dinner at Mario's", category: 'dining', paidBy: 'u2', date: '2026-07-02' },
-  { id: 3, amount: 120, desc: 'Weekly Groceries', category: 'groceries', paidBy: 'u1', date: '2026-07-03' },
-  { id: 4, amount: 45, desc: 'Movie Tickets', category: 'entertainment', paidBy: 'u2', date: '2026-07-03' },
-  { id: 5, amount: 1500, desc: 'June Rent', category: 'rent', paidBy: 'u1', date: '2026-06-01' },
-  { id: 6, amount: 85, desc: 'Date Night', category: 'dining', paidBy: 'u2', date: '2026-06-15' }
-];
+// All real data lives in Supabase — these are just empty starting points
+// used before the first sync (or when the database is not configured).
+export const INITIAL_EXPENSES = [];
 
-export const INITIAL_TODOS = [
-  { id: 1, text: 'Call landlord about AC', assignee: 'u1', completed: false, dueDate: '2026-07-03' },
-  { id: 2, text: 'Plan weekend trip itinerary', assignee: 'shared', completed: false, dueDate: '2026-07-10' },
-  { id: 3, text: 'Pay electric bill', assignee: 'u2', completed: true, dueDate: '2026-06-28' }
-];
+export const INITIAL_TODOS = [];
 
-export const INITIAL_PLAN = {
-  'July 2026': { income: 6000, targetSavings: 1500 },
-  'June 2026': { income: 6000, targetSavings: 1000 }
-};
+export const INITIAL_PLAN = {};
 
-export const INITIAL_SAVINGS_GOAL = { target: 3000, current: 850, name: 'Paris Trip 2027' };
+export const INITIAL_SAVINGS_GOAL = { target: 0, current: 0, name: 'Set your savings goal' };
 
 // "2026-07-01" -> "July 2026"
 export const monthLabel = (isoDate) => {
