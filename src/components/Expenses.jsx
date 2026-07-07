@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Filter, Trash2, Plus } from 'lucide-react';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
+import CategoryPicker from './CategoryPicker';
 
 function AddExpenseForm({ onAdd, categories, currentUser }) {
   const today = new Date().toISOString().split('T')[0];
@@ -25,14 +26,7 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <input type="number" step="0.01" min="0" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
         <input type="text" placeholder="What was it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm lg:col-span-2" />
-        <select value={cat} onChange={(e) => setCat(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-          <optgroup label="Everyday">
-            {categories.filter(c => c.type === 'Variable').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </optgroup>
-          <optgroup label="Fixed Bills">
-            {categories.filter(c => c.type === 'Fixed').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </optgroup>
-        </select>
+        <CategoryPicker categories={categories} value={cat} onChange={setCat} />
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-600" />
         <button type="submit" className="sm:col-span-2 lg:col-span-5 bg-gray-900 text-white rounded-xl px-6 py-3 font-medium hover:bg-gray-800 transition-colors active:scale-95 text-sm flex items-center justify-center gap-2">
           <Plus size={16} /> Add Expense

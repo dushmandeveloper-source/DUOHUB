@@ -3,6 +3,7 @@ import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank } f
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
+import CategoryPicker from './CategoryPicker';
 
 export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo }) {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -149,14 +150,9 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
         <form onSubmit={handleQuickExpense} className="flex flex-col sm:flex-row gap-3">
           <input type="number" step="0.01" min="0" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full sm:w-32 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
           <input type="text" placeholder="What did you buy?" value={desc} onChange={(e) => setDesc(e.target.value)} className="w-full sm:flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
-          <select value={cat} onChange={(e) => setCat(e.target.value)} className="w-full sm:w-48 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-            <optgroup label="Everyday">
-              {categories.filter(c => c.type === 'Variable').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </optgroup>
-            <optgroup label="Fixed Bills">
-              {categories.filter(c => c.type === 'Fixed').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </optgroup>
-          </select>
+          <div className="w-full sm:w-56">
+            <CategoryPicker categories={categories} value={cat} onChange={setCat} />
+          </div>
           <button type="submit" className="w-full sm:w-auto bg-gray-900 text-white rounded-xl px-6 py-3 font-medium hover:bg-gray-800 transition-colors active:scale-95 text-sm shrink-0">Save</button>
         </form>
       </div>
