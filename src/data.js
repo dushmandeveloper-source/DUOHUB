@@ -4,7 +4,8 @@ import {
   ShoppingCart, Utensils, Coffee, Pizza, Cookie, Bus, Fuel, Car, Train, Bike, Wrench,
   Film, Gamepad2, Book, Music, ShoppingBag, Shirt, Laptop, Sofa, Package, Sparkles,
   Scissors, Palette, Stethoscope, Pill, Smile, Activity, Trophy, Plane, Hotel, Gift,
-  Heart, PawPrint, Bone, Hammer, Flower2, Pencil, Wine, PartyPopper, Camera, MoreHorizontal
+  Heart, PawPrint, Bone, Hammer, Flower2, Pencil, Wine, PartyPopper, Camera, MoreHorizontal,
+  Croissant, Sandwich, UtensilsCrossed, ShoppingBasket, Bath, Tent
 } from 'lucide-react';
 
 export const INITIAL_USERS = [
@@ -34,10 +35,16 @@ export const CATEGORIES = [
   { id: 'savings-deposit', name: 'Savings Deposit', icon: PiggyBank, type: 'Fixed' },
   // Variable
   { id: 'groceries', name: 'Groceries', icon: ShoppingCart, type: 'Variable' },
+  { id: 'daily-essentials', name: 'Daily Essentials', icon: ShoppingBasket, type: 'Variable' },
+  { id: 'toiletries', name: 'Toiletries & Hygiene', icon: Bath, type: 'Variable' },
+  { id: 'breakfast', name: 'Breakfast', icon: Croissant, type: 'Variable' },
+  { id: 'lunch', name: 'Lunch', icon: Sandwich, type: 'Variable' },
+  { id: 'dinner', name: 'Dinner', icon: UtensilsCrossed, type: 'Variable' },
   { id: 'dining', name: 'Dining Out', icon: Utensils, type: 'Variable' },
   { id: 'coffee', name: 'Coffee & Tea', icon: Coffee, type: 'Variable' },
   { id: 'fast-food', name: 'Fast Food', icon: Pizza, type: 'Variable' },
   { id: 'snacks', name: 'Snacks', icon: Cookie, type: 'Variable' },
+  { id: 'travel-food', name: 'Travel Food', icon: Tent, type: 'Variable' },
   { id: 'transport', name: 'Transport', icon: Bus, type: 'Variable' },
   { id: 'fuel', name: 'Fuel', icon: Fuel, type: 'Variable' },
   { id: 'taxi', name: 'Taxi / Ride Hailing', icon: Car, type: 'Variable' },
