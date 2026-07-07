@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Home, CreditCard, CheckSquare, PieChart as PieChartIcon, User } from 'lucide-react';
+import { Home, CreditCard, CheckSquare, PieChart as PieChartIcon, User, WifiOff, RefreshCw } from 'lucide-react';
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_SAVINGS_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { showSystemNotification } from './notifications';
@@ -33,6 +33,7 @@ export default function App() {
 
   // --- Cloud sync: initial load + realtime updates from the other device ---
   const loadFromCloud = useCallback(async () => {
+    setCloudStatus('connecting');
     try {
       const data = await db.fetchAll();
       setUsers(prev => prev.map(u => ({ ...u, name: data.names[u.id] ?? u.name })));
@@ -243,6 +244,17 @@ export default function App() {
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
             <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
             <p className="text-sm font-medium">Loading your data from the database…</p>
+          </div>
+        ) : cloudStatus === 'error' ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center px-4">
+            <div className="w-14 h-14 bg-red-100 text-red-500 rounded-2xl flex items-center justify-center mb-4">
+              <WifiOff size={28} />
+            </div>
+            <h2 className="text-lg font-bold text-gray-800 mb-1">Can't reach the database</h2>
+            <p className="text-sm text-gray-500 mb-6 max-w-sm">Check your internet connection. Your data is safe — nothing loads until the connection is back.</p>
+            <button onClick={loadFromCloud} className="bg-gray-900 text-white font-bold py-3 px-8 rounded-xl hover:bg-gray-800 transition-colors shadow-sm text-sm flex items-center gap-2">
+              <RefreshCw size={16} /> Try Again
+            </button>
           </div>
         ) : renderTab()}
       </div>

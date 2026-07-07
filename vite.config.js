@@ -4,6 +4,19 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts') || id.includes('d3-') || id.includes('victory-vendor')) return 'vendor-charts';
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            return 'vendor';
+          }
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
