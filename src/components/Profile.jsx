@@ -1,8 +1,72 @@
 import { useState, useEffect } from 'react';
-import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download } from 'lucide-react';
+import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download, Banknote, Plus } from 'lucide-react';
 import { notificationSupport, requestNotificationPermission, showSystemNotification, getNotifyTime, setNotifyTime, enableBackgroundCheck } from '../notifications';
 import { canInstall, isInstalled, promptInstall, onInstallChange, getInstallSteps } from '../install';
-import { CURRENCIES } from '../lib/currency';
+import { CURRENCIES, formatMoney } from '../lib/currency';
+
+function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
+  const today = new Date().toISOString().split('T')[0];
+  const [amount, setAmount] = useState('');
+  const [source, setSource] = useState('');
+  const [date, setDate] = useState(today);
+
+  const fm = (value) => formatMoney(value, currentUser.currency);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!amount || !source) return;
+    onAdd({ amount: parseFloat(amount), source, date: date || today });
+    setAmount('');
+    setSource('');
+    setDate(today);
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-8">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+          <Banknote size={20} className="md:w-6 md:h-6" />
+        </div>
+        <div>
+          <h2 className="text-lg md:text-xl font-bold">Extra Income — <span className={currentUser.text}>{currentUser.name}</span></h2>
+          <p className="text-gray-500 text-xs md:text-sm">Bonus, freelance, gifts — anything besides your base income. Counted into that month's totals on the dashboard.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 mb-5">
+        <input type="number" step="0.01" min="0" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full sm:w-32 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" />
+        <input type="text" placeholder="Source (e.g. freelance project, bonus)" value={source} onChange={(e) => setSource(e.target.value)} className="w-full sm:flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" />
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-44 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-gray-600" />
+        <button type="submit" className="w-full sm:w-auto bg-emerald-600 text-white rounded-xl px-6 py-3 font-medium hover:bg-emerald-700 transition-colors active:scale-95 text-sm shrink-0 flex items-center justify-center gap-2">
+          <Plus size={16} /> Add
+        </button>
+      </form>
+
+      {incomes.length > 0 ? (
+        <div className="space-y-2">
+          {incomes.map(income => (
+            <div key={income.id} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-800 truncate">{income.source}</p>
+                <p className="text-xs text-gray-400">{income.date}</p>
+              </div>
+              <span className="font-bold text-sm text-emerald-600 shrink-0">+{fm(income.amount)}</span>
+              <button
+                onClick={() => { if (window.confirm(`Delete income "${income.source}" (${fm(income.amount)})?`)) onDelete(income.id); }}
+                className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0"
+                title="Delete income"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-400">No extra income recorded yet.</p>
+      )}
+    </div>
+  );
+}
 
 function InstallApp() {
   const [installed, setInstalled] = useState(isInstalled());
@@ -175,7 +239,7 @@ function NotificationSettings() {
   );
 }
 
-export default function Profile({ users, currentUser, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset }) {
+export default function Profile({ users, currentUser, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset, incomes, onAddIncome, onDeleteIncome }) {
   const [u1Name, setU1Name] = useState(users[0].name);
   const [u2Name, setU2Name] = useState(users[1].name);
   const [u1Currency, setU1Currency] = useState(users[0].currency || 'USD');
@@ -249,6 +313,8 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
           </div>
         </form>
       </div>
+
+      <ExtraIncome incomes={incomes} onAdd={onAddIncome} onDelete={onDeleteIncome} currentUser={currentUser} />
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-8">
         <div className="flex items-center gap-3 mb-6">

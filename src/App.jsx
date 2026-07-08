@@ -259,7 +259,7 @@ export default function App() {
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={categoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
-      case 'profile': return <Profile users={users} currentUser={currentUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} />;
+      case 'profile': return <Profile users={users} currentUser={currentUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
       default: return null;
     }
   };
