@@ -41,15 +41,24 @@ function unwrap({ data, error }) {
   return data;
 }
 
+const rowToIncome = (r) => ({
+  id: r.id,
+  owner: r.owner,
+  amount: Number(r.amount),
+  source: r.source,
+  date: r.date,
+});
+
 export async function fetchAll() {
-  const [profiles, expenses, todos, plans, goals, budgets] = await Promise.all([
+  const [profiles, expenses, todos, plans, goals, budgets, incomes] = await Promise.all([
     supabase.from('profiles').select('*').then(unwrap),
     supabase.from('expenses').select('*').order('date', { ascending: false }).order('id', { ascending: false }).then(unwrap),
     supabase.from('todos').select('*').order('id', { ascending: false }).then(unwrap),
     supabase.from('monthly_plans').select('*').then(unwrap),
     supabase.from('savings_goals').select('*').then(unwrap),
-    // tolerant: table may not exist until migration-3 has been run
+    // tolerant: these tables may not exist until their migrations have run
     supabase.from('category_budgets').select('*').then(r => r.error ? [] : r.data),
+    supabase.from('incomes').select('*').order('date', { ascending: false }).then(r => r.error ? [] : r.data),
   ]);
 
   return {
@@ -65,8 +74,15 @@ export async function fetchAll() {
     }, { u1: {}, u2: {} }),
     goals: Object.fromEntries(goals.map(r => [r.owner, { name: r.name, target: Number(r.target), current: Number(r.current) }])),
     categoryBudgets: Object.fromEntries(budgets.map(r => [r.category, Number(r.amount)])),
+    incomes: incomes.map(rowToIncome),
   };
 }
+
+export const addIncome = (income) =>
+  supabase.from('incomes').insert({ id: income.id, owner: income.owner, amount: income.amount, source: income.source, date: income.date }).then(unwrap);
+
+export const deleteIncome = (id) =>
+  supabase.from('incomes').delete().eq('id', id).then(unwrap);
 
 export const upsertCategoryBudget = (category, amount) =>
   supabase.from('category_budgets').upsert({ category, amount }).then(unwrap);

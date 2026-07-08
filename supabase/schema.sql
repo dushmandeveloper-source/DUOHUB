@@ -38,6 +38,15 @@ create table if not exists monthly_plans (
   primary key (month, owner)
 );
 
+create table if not exists incomes (
+  id bigint primary key,        -- client-generated (Date.now())
+  owner text not null references profiles(id),
+  amount double precision not null,
+  source text not null,
+  date date not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists category_budgets (
   category text primary key,                 -- category id, e.g. 'groceries'
   amount double precision not null default 0 -- monthly limit
@@ -67,6 +76,14 @@ create policy "open access" on category_budgets for all using (true) with check 
 do $$
 begin
   alter publication supabase_realtime add table category_budgets;
+exception when duplicate_object then null;
+end $$;
+alter table incomes enable row level security;
+drop policy if exists "open access" on incomes;
+create policy "open access" on incomes for all using (true) with check (true);
+do $$
+begin
+  alter publication supabase_realtime add table incomes;
 exception when duplicate_object then null;
 end $$;
 

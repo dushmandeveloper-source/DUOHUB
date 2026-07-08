@@ -30,6 +30,7 @@ export default function App() {
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
   const [todos, setTodos] = useState(INITIAL_TODOS);
   const [savingsGoals, setSavingsGoals] = useState({ u1: INITIAL_GOAL, u2: INITIAL_GOAL });
+  const [incomes, setIncomes] = useState([]);
   const [monthlyPlans, setMonthlyPlans] = useState({ u1: INITIAL_PLAN, u2: INITIAL_PLAN });
   const [categoryBudgets, setCategoryBudgets] = useState({});
   const [notification, setNotification] = useState(null);
@@ -41,6 +42,7 @@ export default function App() {
   // Per-person views: each person sees their own expenses, plans, and tasks
   // (tasks assigned to them or marked shared).
   const myExpenses = useMemo(() => expenses.filter(e => e.paidBy === currentUser.id), [expenses, currentUser.id]);
+  const myIncomes = useMemo(() => incomes.filter(i => i.owner === currentUser.id), [incomes, currentUser.id]);
   const myTodos = useMemo(() => todos.filter(t => t.assignee === currentUser.id || t.assignee === 'shared'), [todos, currentUser.id]);
   const myPlans = monthlyPlans[currentUser.id] || {};
 
@@ -64,6 +66,7 @@ export default function App() {
       setMonthlyPlans(data.plans);
       setSavingsGoals(prev => ({ ...prev, ...data.goals }));
       setCategoryBudgets(data.categoryBudgets);
+      setIncomes(data.incomes);
       setCloudStatus('online');
     } catch (err) {
       logSyncError(err);
@@ -158,6 +161,17 @@ export default function App() {
     if (isCloudEnabled) db.addExpense(expense).catch(logSyncError);
   };
 
+  const addIncome = (newIncome) => {
+    const income = { ...newIncome, id: Date.now(), owner: currentUser.id };
+    setIncomes(prev => [income, ...prev]);
+    if (isCloudEnabled) db.addIncome(income).catch(logSyncError);
+  };
+
+  const deleteIncome = (id) => {
+    setIncomes(prev => prev.filter(i => i.id !== id));
+    if (isCloudEnabled) db.deleteIncome(id).catch(logSyncError);
+  };
+
   const deleteExpense = (id) => {
     setExpenses(prev => prev.filter(e => e.id !== id));
     if (isCloudEnabled) db.deleteExpense(id).catch(logSyncError);
@@ -241,7 +255,7 @@ export default function App() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onToggleTodo={toggleTodo} categoryBudgets={categoryBudgets} />;
+      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onToggleTodo={toggleTodo} categoryBudgets={categoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={categoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;

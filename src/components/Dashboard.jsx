@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote } from 'lucide-react';
+import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
 import CategoryPicker from './CategoryPicker';
 
-export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo, categoryBudgets }) {
+export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo, categoryBudgets, incomes, onAddIncome, onDeleteIncome }) {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [editName, setEditName] = useState(savingsGoal.name);
   const [editTarget, setEditTarget] = useState(savingsGoal.target);
@@ -23,6 +23,9 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
   const [cat, setCat] = useState('groceries');
+
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [incomeSource, setIncomeSource] = useState('');
 
   const handleSaveGoal = () => {
     onUpdateGoal(editName, editTarget);
@@ -43,9 +46,23 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
   const monthExpenses = expenses.filter(exp => monthLabel(exp.date) === selectedMonth);
 
   const totalSpent = monthExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-  const budgetAllowed = currentPlan.income - currentPlan.targetSavings;
+
+  // Total income = base plan income + extra income entries for the month
+  const monthIncomes = (incomes || []).filter(i => monthLabel(i.date) === selectedMonth);
+  const extraIncome = monthIncomes.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalIncome = currentPlan.income + extraIncome;
+
+  const budgetAllowed = totalIncome - currentPlan.targetSavings;
   const remainingBudget = Math.max(0, budgetAllowed - totalSpent);
-  const availableBalance = currentPlan.income - totalSpent;
+  const availableBalance = totalIncome - totalSpent;
+
+  const handleAddIncome = (e) => {
+    e.preventDefault();
+    if (!incomeAmount || !incomeSource) return;
+    onAddIncome({ amount: parseFloat(incomeAmount), source: incomeSource, date: new Date().toISOString().split('T')[0] });
+    setIncomeAmount('');
+    setIncomeSource('');
+  };
   const monthSavingsDeposits = monthExpenses.filter(e => e.category === 'savings-deposit').reduce((acc, curr) => acc + curr.amount, 0);
 
   const spendPercent = budgetAllowed > 0 ? Math.min(100, (totalSpent / budgetAllowed) * 100) : 0;
@@ -134,9 +151,12 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                 <Wallet size={20} />
               </div>
-              <p className="text-sm text-gray-500 font-medium leading-tight">Income Limit</p>
+              <p className="text-sm text-gray-500 font-medium leading-tight">Total Income</p>
             </div>
-            <p className="text-xl md:text-2xl font-bold">{fm(currentPlan.income)}</p>
+            <p className="text-xl md:text-2xl font-bold">{fm(totalIncome)}</p>
+            {extraIncome > 0 && (
+              <p className="text-[10px] font-bold mt-1 text-gray-400 uppercase tracking-wider">Base {fm(currentPlan.income)} + Extra {fm(extraIncome)}</p>
+            )}
           </div>
 
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
@@ -261,6 +281,39 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           </div>
         ) : (
           <p className="text-sm text-gray-400">No category limits set yet — add them in the Analytics tab under "Category Budgets".</p>
+        )}
+      </div>
+
+      {/* EXTRA INCOME for the selected month */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
+        <h3 className="text-lg font-bold mb-1">Extra Income — {selectedMonth}</h3>
+        <p className="text-xs text-gray-400 mb-4">Bonus, freelance, gifts — anything besides the base income set in your monthly plan. Added to this month's totals.</p>
+        <form onSubmit={handleAddIncome} className="flex flex-col sm:flex-row gap-3 mb-4">
+          <input type="number" step="0.01" min="0" placeholder="Amount" value={incomeAmount} onChange={(e) => setIncomeAmount(e.target.value)} className="w-full sm:w-32 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          <input type="text" placeholder="Source (e.g. freelance project, bonus)" value={incomeSource} onChange={(e) => setIncomeSource(e.target.value)} className="w-full sm:flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          <button type="submit" className="w-full sm:w-auto bg-green-600 text-white rounded-xl px-6 py-3 font-medium hover:bg-green-700 transition-colors active:scale-95 text-sm shrink-0 flex items-center justify-center gap-2">
+            <Plus size={16} /> Add Income
+          </button>
+        </form>
+        {monthIncomes.length > 0 && (
+          <div className="space-y-2">
+            {monthIncomes.map(income => (
+              <div key={income.id} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 truncate">{income.source}</p>
+                  <p className="text-xs text-gray-400">{income.date}</p>
+                </div>
+                <span className="font-bold text-sm text-green-600 shrink-0">+{fm(income.amount)}</span>
+                <button
+                  onClick={() => { if (window.confirm(`Delete income "${income.source}" (${fm(income.amount)})?`)) onDeleteIncome(income.id); }}
+                  className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0"
+                  title="Delete income"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
