@@ -20,16 +20,31 @@ self.addEventListener('periodicsync', (event) => {
   }
 });
 
+// The app writes this device's person into the cache so background alerts
+// only fire for their own and shared tasks.
+async function getDeviceUser() {
+  try {
+    const cache = await caches.open('duohub-config');
+    const res = await cache.match('/device-user');
+    if (res) return (await res.json()).userId;
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
 async function notifyDueTasks() {
   if (!SUPABASE_URL || !SUPABASE_KEY) return;
   try {
     const today = new Date().toISOString().split('T')[0];
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/todos?select=text,due_date&completed=eq.false&due_date=lte.${today}`,
+      `${SUPABASE_URL}/rest/v1/todos?select=text,due_date,assignee&completed=eq.false&due_date=lte.${today}`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     );
     if (!res.ok) return;
-    const tasks = await res.json();
+    let tasks = await res.json();
+    const userId = await getDeviceUser();
+    if (userId) tasks = tasks.filter(t => t.assignee === 'shared' || t.assignee === userId);
     if (!tasks.length) return;
     await self.registration.showNotification('DuoHub — tasks need attention', {
       body: `Due/Overdue: ${tasks.map(t => t.text).join(', ')}`,

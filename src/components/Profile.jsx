@@ -175,7 +175,7 @@ function NotificationSettings() {
   );
 }
 
-export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset }) {
+export default function Profile({ users, currentUser, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset }) {
   const [u1Name, setU1Name] = useState(users[0].name);
   const [u2Name, setU2Name] = useState(users[1].name);
   const [u1Currency, setU1Currency] = useState(users[0].currency || 'USD');
@@ -220,8 +220,8 @@ export default function Profile({ users, onUpdateProfile, monthlyPlans, onUpdate
             <TrendingDown size={20} className="md:w-6 md:h-6" />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-bold">Monthly Financial Plan</h2>
-            <p className="text-gray-500 text-xs md:text-sm">Set your income and savings target for a specific month.</p>
+            <h2 className="text-lg md:text-xl font-bold">Monthly Financial Plan — <span className={currentUser.text}>{currentUser.name}</span></h2>
+            <p className="text-gray-500 text-xs md:text-sm">Sets {currentUser.name}'s own income and savings target. Switch the person at the top to set the other one.</p>
           </div>
         </div>
 

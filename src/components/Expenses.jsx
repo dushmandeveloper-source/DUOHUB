@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Filter, Trash2, Plus } from 'lucide-react';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
@@ -38,17 +38,24 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
 
 export default function Expenses({ expenses, users, categories, availableMonths, onAdd, onDelete, currentUser }) {
   const [filterMonth, setFilterMonth] = useState('all');
+  const [payerFilter, setPayerFilter] = useState(currentUser.id);
+
+  // Default to the selected person's own expenses; follows the top toggle
+  useEffect(() => {
+    setPayerFilter(currentUser.id);
+  }, [currentUser.id]);
 
   const groupedExpenses = useMemo(() => {
     const groups = {};
-    const sortedExpenses = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const visible = payerFilter === 'all' ? expenses : expenses.filter(e => e.paidBy === payerFilter);
+    const sortedExpenses = [...visible].sort((a, b) => new Date(b.date) - new Date(a.date));
     sortedExpenses.forEach(exp => {
       const dateStr = monthLabel(exp.date);
       if (!groups[dateStr]) groups[dateStr] = [];
       groups[dateStr].push(exp);
     });
     return groups;
-  }, [expenses]);
+  }, [expenses, payerFilter]);
 
   const visibleGroups = Object.entries(groupedExpenses).filter(([monthYear]) => filterMonth === 'all' || filterMonth === monthYear);
 
@@ -59,12 +66,19 @@ export default function Expenses({ expenses, users, categories, availableMonths,
       <div>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
           <h3 className="text-lg font-bold">Expense History</h3>
-          <div className="flex items-center gap-2 bg-white px-3 py-2 md:py-1.5 rounded-xl md:rounded-full border border-gray-200 shadow-sm w-full md:w-auto">
-            <Filter size={16} className="text-gray-400 shrink-0" />
-            <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="bg-transparent border-none focus:outline-none text-sm font-medium text-gray-700 cursor-pointer w-full">
-              <option value="all">All Time</option>
-              {availableMonths.map(month => <option key={month} value={month}>{month}</option>)}
-            </select>
+          <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
+            <div className="flex bg-gray-200 rounded-xl md:rounded-full p-1 w-full sm:w-auto">
+              <button onClick={() => setPayerFilter('u1')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium truncate ${payerFilter === 'u1' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>{users[0].name}</button>
+              <button onClick={() => setPayerFilter('u2')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium truncate ${payerFilter === 'u2' ? 'bg-white shadow text-rose-600' : 'text-gray-500'}`}>{users[1].name}</button>
+              <button onClick={() => setPayerFilter('all')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium ${payerFilter === 'all' ? 'bg-white shadow' : 'text-gray-500'}`}>Both</button>
+            </div>
+            <div className="flex items-center gap-2 bg-white px-3 py-2 md:py-1.5 rounded-xl md:rounded-full border border-gray-200 shadow-sm w-full sm:w-auto">
+              <Filter size={16} className="text-gray-400 shrink-0" />
+              <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="bg-transparent border-none focus:outline-none text-sm font-medium text-gray-700 cursor-pointer w-full">
+                <option value="all">All Time</option>
+                {availableMonths.map(month => <option key={month} value={month}>{month}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 

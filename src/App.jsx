@@ -30,13 +30,28 @@ export default function App() {
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
   const [todos, setTodos] = useState(INITIAL_TODOS);
   const [savingsGoals, setSavingsGoals] = useState({ u1: INITIAL_GOAL, u2: INITIAL_GOAL });
-  const [monthlyPlans, setMonthlyPlans] = useState(INITIAL_PLAN);
+  const [monthlyPlans, setMonthlyPlans] = useState({ u1: INITIAL_PLAN, u2: INITIAL_PLAN });
   const [categoryBudgets, setCategoryBudgets] = useState({});
   const [notification, setNotification] = useState(null);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
 
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
   const currentGoal = savingsGoals[currentUser.id] || INITIAL_GOAL;
+
+  // Per-person views: each person sees their own expenses, plans, and tasks
+  // (tasks assigned to them or marked shared).
+  const myExpenses = useMemo(() => expenses.filter(e => e.paidBy === currentUser.id), [expenses, currentUser.id]);
+  const myTodos = useMemo(() => todos.filter(t => t.assignee === currentUser.id || t.assignee === 'shared'), [todos, currentUser.id]);
+  const myPlans = monthlyPlans[currentUser.id] || {};
+
+  // Tell the service worker which person uses this device, so background
+  // due-task alerts only fire for their own and shared tasks.
+  useEffect(() => {
+    if (!('caches' in window)) return;
+    caches.open('duohub-config')
+      .then(cache => cache.put('/device-user', new Response(JSON.stringify({ userId: currentUserId }), { headers: { 'Content-Type': 'application/json' } })))
+      .catch(() => {});
+  }, [currentUserId]);
 
   // --- Cloud sync: initial load + realtime updates from the other device ---
   const loadFromCloud = useCallback(async () => {
@@ -99,7 +114,11 @@ export default function App() {
     const check = () => {
       const now = new Date();
       const today = now.toISOString().split('T')[0];
-      const dueTasks = todos.filter(t => !t.completed && t.dueDate && t.dueDate <= today);
+      // Only this device's person: their own tasks + shared ones
+      const dueTasks = todos.filter(t =>
+        !t.completed && t.dueDate && t.dueDate <= today &&
+        (t.assignee === currentUser.id || t.assignee === 'shared')
+      );
 
       if (dueTasks.length === 0) {
         setNotification(null);
@@ -125,7 +144,7 @@ export default function App() {
     check();
     const interval = setInterval(check, 5 * 60 * 1000); // re-check every 5 minutes while open
     return () => clearInterval(interval);
-  }, [todos]);
+  }, [todos, currentUser.id]);
 
   const toggleUser = () => {
     setCurrentUserId(prev => (prev === 'u1' ? 'u2' : 'u1'));
@@ -192,9 +211,9 @@ export default function App() {
     const parsedSavings = parseFloat(savings) || 0;
     setMonthlyPlans(prev => ({
       ...prev,
-      [month]: { income: parsedIncome, targetSavings: parsedSavings }
+      [currentUser.id]: { ...(prev[currentUser.id] || {}), [month]: { income: parsedIncome, targetSavings: parsedSavings } }
     }));
-    if (isCloudEnabled) db.upsertPlan(month, parsedIncome, parsedSavings).catch(logSyncError);
+    if (isCloudEnabled) db.upsertPlan(currentUser.id, month, parsedIncome, parsedSavings).catch(logSyncError);
   };
 
   const setCategoryBudget = (category, amount) => {
@@ -222,11 +241,11 @@ export default function App() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard expenses={expenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={monthlyPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={todos} onToggleTodo={toggleTodo} categoryBudgets={categoryBudgets} />;
+      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onToggleTodo={toggleTodo} categoryBudgets={categoryBudgets} />;
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
-      case 'analytics': return <Analytics expenses={expenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={categoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
+      case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={categoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
-      case 'profile': return <Profile users={users} onUpdateProfile={updateProfile} monthlyPlans={monthlyPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} />;
+      case 'profile': return <Profile users={users} currentUser={currentUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} />;
       default: return null;
     }
   };

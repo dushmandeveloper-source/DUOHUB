@@ -31,9 +31,11 @@ create table if not exists todos (
 );
 
 create table if not exists monthly_plans (
-  month text primary key,       -- e.g. 'July 2026'
+  month text not null,          -- e.g. 'July 2026'
+  owner text not null references profiles(id),
   income double precision not null default 0,
-  target_savings double precision not null default 0
+  target_savings double precision not null default 0,
+  primary key (month, owner)
 );
 
 create table if not exists category_budgets (

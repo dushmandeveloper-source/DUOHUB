@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Filter, Calendar, CheckSquare, Trash2, Bell } from 'lucide-react';
 import { monthLabel } from '../data';
 import { getNotifyTime } from '../notifications';
@@ -7,8 +7,13 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
   const [task, setTask] = useState('');
   const [assignTo, setAssignTo] = useState('shared');
   const [dueDate, setDueDate] = useState('');
-  const [userFilter, setUserFilter] = useState('all');
+  const [userFilter, setUserFilter] = useState(currentUser.id);
   const [monthFilter, setMonthFilter] = useState('all');
+
+  // Default to the selected person's own tasks; follows the top toggle
+  useEffect(() => {
+    setUserFilter(currentUser.id);
+  }, [currentUser.id]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

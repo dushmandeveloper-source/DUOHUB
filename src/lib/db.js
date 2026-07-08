@@ -56,7 +56,13 @@ export async function fetchAll() {
     profiles: Object.fromEntries(profiles.map(r => [r.id, { name: r.name, currency: r.currency || 'USD' }])),
     expenses: expenses.map(rowToExpense),
     todos: todos.map(rowToTodo),
-    plans: Object.fromEntries(plans.map(r => [r.month, { income: Number(r.income), targetSavings: Number(r.target_savings) }])),
+    // plans grouped per person: { u1: { 'July 2026': {...} }, u2: {...} }
+    plans: plans.reduce((acc, r) => {
+      const owner = r.owner || 'u1';
+      if (!acc[owner]) acc[owner] = {};
+      acc[owner][r.month] = { income: Number(r.income), targetSavings: Number(r.target_savings) };
+      return acc;
+    }, { u1: {}, u2: {} }),
     goals: Object.fromEntries(goals.map(r => [r.owner, { name: r.name, target: Number(r.target), current: Number(r.current) }])),
     categoryBudgets: Object.fromEntries(budgets.map(r => [r.category, Number(r.amount)])),
   };
@@ -89,8 +95,8 @@ export const deleteExpensesBetween = (startDate, endDate) =>
 export const deleteTodosBetween = (startDate, endDate) =>
   supabase.from('todos').delete().gte('due_date', startDate).lte('due_date', endDate).then(unwrap);
 
-export const upsertPlan = (month, income, targetSavings) =>
-  supabase.from('monthly_plans').upsert({ month, income, target_savings: targetSavings }).then(unwrap);
+export const upsertPlan = (owner, month, income, targetSavings) =>
+  supabase.from('monthly_plans').upsert({ month, owner, income, target_savings: targetSavings }, { onConflict: 'month,owner' }).then(unwrap);
 
 export const updateGoal = (owner, goal) =>
   supabase.from('savings_goals').upsert({ owner, name: goal.name, target: goal.target, current: goal.current }).then(unwrap);
