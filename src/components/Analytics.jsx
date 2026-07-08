@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AlertCircle, Target, Plus, X } from 'lucide-react';
 import { formatMoney } from '../lib/currency';
 import { monthLabel } from '../data';
+import { confirmDialog, toast } from '../ui';
 import CategoryPicker from './CategoryPicker';
 
 function CategoryBudgets({ expenses, categories, currency, budgets, onSet, onRemove }) {
@@ -33,6 +34,7 @@ function CategoryBudgets({ expenses, categories, currency, budgets, onSet, onRem
     const amount = parseFloat(newAmount);
     if (!amount || amount <= 0) return;
     onSet(newCat, amount);
+    toast('Budget saved');
     setNewAmount('');
   };
 
@@ -73,7 +75,10 @@ function CategoryBudgets({ expenses, categories, currency, budgets, onSet, onRem
                   <span className={`text-xs font-bold ${textColor}`}>
                     {fm(spent)} / {fm(limit)}{pct >= 100 && ' — over budget!'}
                   </span>
-                  <button onClick={() => { if (window.confirm(`Remove the budget for ${category?.name || catId}?`)) onRemove(catId); }} className="text-gray-300 hover:text-red-500 p-0.5 transition-colors" title="Remove budget">
+                  <button onClick={async () => {
+                    const ok = await confirmDialog({ title: 'Remove budget?', message: `The monthly limit for ${category?.name || catId} will be removed.`, confirmLabel: 'Remove' });
+                    if (ok) { onRemove(catId); toast('Budget removed'); }
+                  }} className="text-gray-300 hover:text-red-500 p-0.5 transition-colors" title="Remove budget">
                     <X size={14} />
                   </button>
                 </span>

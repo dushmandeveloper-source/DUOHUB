@@ -8,6 +8,7 @@ import { onUpdateAvailable, applyUpdate } from './updater';
 import * as db from './lib/db';
 import { NavItem, MobileNavItem } from './components/Nav';
 import Notification from './components/Notification';
+import UIHost from './components/UIHost';
 import Dashboard from './components/Dashboard';
 import Expenses from './components/Expenses';
 import Analytics from './components/Analytics';
@@ -278,6 +279,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row font-sans text-gray-800 relative overflow-x-hidden">
 
+      <UIHost />
       <Notification notification={notification} onClose={() => setNotification(null)} />
 
       {updateReady && (

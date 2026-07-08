@@ -3,6 +3,7 @@ import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, Tr
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
+import { toast } from '../ui';
 import CategoryPicker from './CategoryPicker';
 
 export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo, categoryBudgets, incomes }) {
@@ -35,6 +36,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
     if (!amount || !desc) return;
     const today = new Date().toISOString().split('T')[0];
     onAddExpense({ amount: parseFloat(amount), desc, category: cat, date: today });
+    toast('Expense added');
     setAmount('');
     setDesc('');
   };
@@ -327,7 +329,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
 
           <div className="relative z-10 flex flex-row gap-2 items-center w-full mt-auto">
             <input type="number" step="0.01" min="0" placeholder="Amount" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-24 sm:w-32 bg-white/10 border border-white/20 rounded-xl px-3 py-2 md:px-4 md:py-3 text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-white/50 text-sm" />
-            <button onClick={() => { if(addAmount) { onAddSavings(parseFloat(addAmount)); setAddAmount(''); } }} className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40 px-3 py-2 md:px-6 md:py-3 rounded-xl transition-all font-medium flex justify-center items-center gap-2 active:scale-95 text-xs md:text-sm">
+            <button onClick={() => { if(addAmount) { onAddSavings(parseFloat(addAmount)); toast('Added to savings goal'); setAddAmount(''); } }} className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40 px-3 py-2 md:px-6 md:py-3 rounded-xl transition-all font-medium flex justify-center items-center gap-2 active:scale-95 text-xs md:text-sm">
               <Plus size={16} className="shrink-0" /> Add
             </button>
           </div>

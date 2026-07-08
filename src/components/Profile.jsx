@@ -3,6 +3,7 @@ import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download, B
 import { notificationSupport, requestNotificationPermission, showSystemNotification, getNotifyTime, setNotifyTime, enableBackgroundCheck } from '../notifications';
 import { canInstall, isInstalled, promptInstall, onInstallChange, getInstallSteps } from '../install';
 import { checkForUpdates, hasPendingUpdate, BUILD_VERSION } from '../updater';
+import { confirmDialog, toast } from '../ui';
 import { CURRENCIES, formatMoney } from '../lib/currency';
 
 function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
@@ -17,6 +18,7 @@ function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
     e.preventDefault();
     if (!amount || !source) return;
     onAdd({ amount: parseFloat(amount), source, date: date || today });
+    toast('Income added');
     setAmount('');
     setSource('');
     setDate(today);
@@ -53,7 +55,10 @@ function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
               </div>
               <span className="font-bold text-sm text-emerald-600 shrink-0">+{fm(income.amount)}</span>
               <button
-                onClick={() => { if (window.confirm(`Delete income "${income.source}" (${fm(income.amount)})?`)) onDelete(income.id); }}
+                onClick={async () => {
+                  const ok = await confirmDialog({ title: 'Delete income?', message: `"${income.source}" (${fm(income.amount)}) will be removed from this month's totals.` });
+                  if (ok) { onDelete(income.id); toast('Income deleted'); }
+                }}
                 className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0"
                 title="Delete income"
               >
@@ -81,7 +86,7 @@ function InstallApp() {
     setTimeout(() => {
       setChecking(false);
       if (!hasPendingUpdate()) {
-        window.alert("You're on the latest version.");
+        toast("You're on the latest version.", 'info');
       }
       // if an update exists, the blue Update banner appears automatically
     }, 2500);
@@ -156,17 +161,22 @@ function ResetRecords({ expenses, todos, onReset }) {
     { label: 'This Month', start: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), end: toISO(new Date(now.getFullYear(), now.getMonth() + 1, 0)) },
   ];
 
-  const handleReset = (range) => {
+  const handleReset = async (range) => {
     const expCount = expenses.filter(e => e.date >= range.start && e.date <= range.end).length;
     const todoCount = todos.filter(t => t.dueDate && t.dueDate >= range.start && t.dueDate <= range.end).length;
     if (expCount + todoCount === 0) {
-      window.alert(`No records found for ${range.label.toLowerCase()}.`);
+      toast(`No records found for ${range.label.toLowerCase()}.`, 'info');
       return;
     }
-    const confirmed = window.confirm(
-      `Delete ${expCount} expense(s) and ${todoCount} task(s) dated ${range.start} to ${range.end}?\n\nThis cannot be undone.`
-    );
-    if (confirmed) onReset(range.start, range.end);
+    const confirmed = await confirmDialog({
+      title: `Reset ${range.label.toLowerCase()}?`,
+      message: `${expCount} expense(s) and ${todoCount} task(s) dated ${range.start} to ${range.end} will be permanently deleted. This cannot be undone.`,
+      confirmLabel: 'Delete All',
+    });
+    if (confirmed) {
+      onReset(range.start, range.end);
+      toast(`Deleted ${expCount + todoCount} record(s)`);
+    }
   };
 
   return (
@@ -287,11 +297,13 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
   const handleProfileSubmit = (e) => {
     e.preventDefault();
     onUpdateProfile({ name: u1Name, currency: u1Currency }, { name: u2Name, currency: u2Currency });
+    toast('Profiles updated');
   };
 
   const handlePlanSubmit = (e) => {
     e.preventDefault();
     onUpdatePlan(planMonth, income, targetSavings);
+    toast(`Plan saved for ${planMonth}`);
   };
 
   return (

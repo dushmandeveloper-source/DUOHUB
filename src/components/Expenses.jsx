@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Filter, Trash2, Plus } from 'lucide-react';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
+import { confirmDialog, toast } from '../ui';
 import CategoryPicker from './CategoryPicker';
 
 function AddExpenseForm({ onAdd, categories, currentUser }) {
@@ -15,6 +16,7 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
     e.preventDefault();
     if (!amount || !desc) return;
     onAdd({ amount: parseFloat(amount), desc, category: cat, date: date || today });
+    toast('Expense added');
     setAmount('');
     setDesc('');
     setDate(today);
@@ -104,7 +106,10 @@ export default function Expenses({ expenses, users, categories, availableMonths,
                         <span className="font-bold text-base md:text-lg">{formatMoney(exp.amount, user?.currency)}</span>
                         <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold text-white shrink-0 ${user?.color || 'bg-gray-400'}`} title={`Paid by ${user?.name || 'Unknown'}`}>{user?.name.charAt(0) || '?'}</div>
                         <button
-                          onClick={() => { if (window.confirm(`Delete "${exp.desc}" (${formatMoney(exp.amount, user?.currency)})?`)) onDelete(exp.id); }}
+                          onClick={async () => {
+                            const ok = await confirmDialog({ title: 'Delete expense?', message: `"${exp.desc}" (${formatMoney(exp.amount, user?.currency)}) will be removed for both of you.` });
+                            if (ok) { onDelete(exp.id); toast('Expense deleted'); }
+                          }}
                           className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0"
                           title="Delete expense"
                         >

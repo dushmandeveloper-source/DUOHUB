@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Filter, Calendar, CheckSquare, Trash2, Bell } from 'lucide-react';
 import { monthLabel } from '../data';
 import { getNotifyTime } from '../notifications';
+import { confirmDialog, toast } from '../ui';
 
 export default function Todos({ todos, onToggle, onAdd, onDelete, users, currentUser, availableMonths }) {
   const [task, setTask] = useState('');
@@ -17,7 +18,9 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!task.trim()) return;
     onAdd(task, assignTo, dueDate);
+    toast('Task added');
     setTask('');
     setDueDate('');
   };
@@ -92,7 +95,11 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
               <div className="flex items-center gap-1 ml-3 shrink-0">
                 <span className={`text-[10px] md:text-xs font-bold px-2 py-1 rounded-md text-center ${assigneeColor}`}>{assigneeName}</span>
                 <button
-                  onClick={(e) => { e.stopPropagation(); if (window.confirm(`Delete task "${todo.text}"?`)) onDelete(todo.id); }}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const ok = await confirmDialog({ title: 'Delete task?', message: `"${todo.text}" will be removed for both of you.` });
+                    if (ok) { onDelete(todo.id); toast('Task deleted'); }
+                  }}
                   className="text-gray-300 hover:text-red-500 transition-colors p-1"
                   title="Delete task"
                 >
