@@ -4,6 +4,7 @@ import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLA
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { showSystemNotification, getNotifyTime, enableBackgroundCheck } from './notifications';
 import { isCloudEnabled } from './lib/supabase';
+import { onUpdateAvailable, applyUpdate } from './updater';
 import * as db from './lib/db';
 import { NavItem, MobileNavItem } from './components/Nav';
 import Notification from './components/Notification';
@@ -35,6 +36,9 @@ export default function App() {
   const [categoryBudgets, setCategoryBudgets] = useState({});
   const [notification, setNotification] = useState(null);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
+  const [updateReady, setUpdateReady] = useState(false);
+
+  useEffect(() => onUpdateAvailable(() => setUpdateReady(true)), []);
 
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
   const currentGoal = savingsGoals[currentUser.id] || INITIAL_GOAL;
@@ -275,6 +279,18 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row font-sans text-gray-800 relative overflow-x-hidden">
 
       <Notification notification={notification} onClose={() => setNotification(null)} />
+
+      {updateReady && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-indigo-600 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4 w-[92%] max-w-md">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold">New version available</p>
+            <p className="text-xs text-indigo-200">Tap update to get the latest features.</p>
+          </div>
+          <button onClick={applyUpdate} className="bg-white text-indigo-700 font-bold text-sm px-5 py-2 rounded-xl hover:bg-indigo-50 transition-colors shrink-0 flex items-center gap-1.5">
+            <RefreshCw size={14} /> Update
+          </button>
+        </div>
+      )}
 
       {/* SIDEBAR (Desktop) */}
       <div className="bg-white border-b md:border-r border-gray-200 w-full md:w-64 md:min-h-screen flex flex-row md:flex-col justify-between md:justify-start md:gap-6 items-center md:items-start p-4 md:p-6 sticky top-0 z-40 shadow-sm md:shadow-none shrink-0 h-16 md:h-auto">

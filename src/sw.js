@@ -3,7 +3,11 @@ import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from
 import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { clientsClaim } from 'workbox-core';
 
-self.skipWaiting();
+// Waits for the user to confirm the update (the app shows an Update banner),
+// then the SKIP_WAITING message activates the new version.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 clientsClaim();
 
 cleanupOutdatedCaches();

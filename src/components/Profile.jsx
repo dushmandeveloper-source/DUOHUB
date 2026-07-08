@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download, Banknote, Plus } from 'lucide-react';
 import { notificationSupport, requestNotificationPermission, showSystemNotification, getNotifyTime, setNotifyTime, enableBackgroundCheck } from '../notifications';
 import { canInstall, isInstalled, promptInstall, onInstallChange, getInstallSteps } from '../install';
+import { checkForUpdates, hasPendingUpdate, BUILD_VERSION } from '../updater';
 import { CURRENCIES, formatMoney } from '../lib/currency';
 
 function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
@@ -71,6 +72,20 @@ function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
 function InstallApp() {
   const [installed, setInstalled] = useState(isInstalled());
   const [available, setAvailable] = useState(canInstall());
+  const [checking, setChecking] = useState(false);
+
+  const handleCheckUpdates = async () => {
+    setChecking(true);
+    await checkForUpdates();
+    // give the browser a moment to fetch and compare the new version
+    setTimeout(() => {
+      setChecking(false);
+      if (!hasPendingUpdate()) {
+        window.alert("You're on the latest version.");
+      }
+      // if an update exists, the blue Update banner appears automatically
+    }, 2500);
+  };
 
   useEffect(() => {
     const update = () => {
@@ -114,6 +129,13 @@ function InstallApp() {
           <p className="text-xs text-gray-400 mt-2">Some browsers (Safari, Firefox) don't allow websites to start the install automatically — these are the manual steps for yours.</p>
         </div>
       )}
+
+      <div className="mt-5 pt-5 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3">
+        <p className="text-xs text-gray-400 sm:flex-1">App version: <span className="font-semibold text-gray-500">{BUILD_VERSION}</span></p>
+        <button onClick={handleCheckUpdates} disabled={checking} className="w-full sm:w-auto bg-gray-100 text-gray-700 font-medium py-2.5 px-5 rounded-xl hover:bg-gray-200 transition-colors text-sm disabled:opacity-50">
+          {checking ? 'Checking…' : 'Check for Updates'}
+        </button>
+      </div>
     </div>
   );
 }
