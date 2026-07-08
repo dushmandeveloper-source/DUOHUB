@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Filter, Calendar, CheckSquare, Trash2, Bell } from 'lucide-react';
+import { Plus, Calendar, CheckSquare, Trash2, Bell } from 'lucide-react';
 import { monthLabel } from '../data';
 import { getNotifyTime } from '../notifications';
 import { confirmDialog, toast } from '../ui';

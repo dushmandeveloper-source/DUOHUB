@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Filter, Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus } from 'lucide-react';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
 import { confirmDialog, toast } from '../ui';
