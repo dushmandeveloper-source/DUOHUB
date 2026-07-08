@@ -4,9 +4,12 @@ import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
 import { confirmDialog, toast } from '../ui';
 import CategoryPicker from './CategoryPicker';
+import SelectMenu from './SelectMenu';
+import QuickDates from './QuickDates';
+import { todayISO, addDaysISO } from '../lib/dates';
 
 function AddExpenseForm({ onAdd, categories, currentUser }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayISO();
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
   const [cat, setCat] = useState('groceries');
@@ -30,6 +33,17 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
         <input type="text" placeholder="What was it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm lg:col-span-2" />
         <CategoryPicker categories={categories} value={cat} onChange={setCat} />
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-600" />
+        <div className="sm:col-span-2 lg:col-span-5">
+          <QuickDates
+            value={date}
+            onChange={setDate}
+            options={[
+              { label: 'Today', date: today },
+              { label: 'Yesterday', date: addDaysISO(-1) },
+              { label: '2 Days Ago', date: addDaysISO(-2) },
+            ]}
+          />
+        </div>
         <button type="submit" className="sm:col-span-2 lg:col-span-5 bg-gray-900 text-white rounded-xl px-6 py-3 font-medium hover:bg-gray-800 transition-colors active:scale-95 text-sm flex items-center justify-center gap-2">
           <Plus size={16} /> Add Expense
         </button>
@@ -74,13 +88,12 @@ export default function Expenses({ expenses, users, categories, availableMonths,
               <button onClick={() => setPayerFilter('u2')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium truncate ${payerFilter === 'u2' ? 'bg-white shadow text-rose-600' : 'text-gray-500'}`}>{users[1].name}</button>
               <button onClick={() => setPayerFilter('all')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium ${payerFilter === 'all' ? 'bg-white shadow' : 'text-gray-500'}`}>Both</button>
             </div>
-            <div className="flex items-center gap-2 bg-white px-3 py-2 md:py-1.5 rounded-xl md:rounded-full border border-gray-200 shadow-sm w-full sm:w-auto">
-              <Filter size={16} className="text-gray-400 shrink-0" />
-              <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="bg-transparent border-none focus:outline-none text-sm font-medium text-gray-700 cursor-pointer w-full">
-                <option value="all">All Time</option>
-                {availableMonths.map(month => <option key={month} value={month}>{month}</option>)}
-              </select>
-            </div>
+            <SelectMenu
+              className="w-full sm:w-48"
+              value={filterMonth}
+              onChange={setFilterMonth}
+              options={[{ value: 'all', label: 'All Time' }, ...availableMonths.map(m => ({ value: m, label: m }))]}
+            />
           </div>
         </div>
 

@@ -4,10 +4,13 @@ import { notificationSupport, requestNotificationPermission, showSystemNotificat
 import { canInstall, isInstalled, promptInstall, onInstallChange, getInstallSteps } from '../install';
 import { checkForUpdates, hasPendingUpdate, BUILD_VERSION } from '../updater';
 import { confirmDialog, toast } from '../ui';
+import SelectMenu from './SelectMenu';
+import QuickDates from './QuickDates';
+import { todayISO, addDaysISO } from '../lib/dates';
 import { CURRENCIES, formatMoney } from '../lib/currency';
 
 function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayISO();
   const [amount, setAmount] = useState('');
   const [source, setSource] = useState('');
   const [date, setDate] = useState(today);
@@ -44,6 +47,16 @@ function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
           <Plus size={16} /> Add
         </button>
       </form>
+      <div className="mb-5 -mt-2">
+        <QuickDates
+          value={date}
+          onChange={setDate}
+          options={[
+            { label: 'Today', date: today },
+            { label: 'Yesterday', date: addDaysISO(-1) },
+          ]}
+        />
+      </div>
 
       {incomes.length > 0 ? (
         <div className="space-y-2">
@@ -326,9 +339,12 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
         <form onSubmit={handlePlanSubmit} className="space-y-4 md:space-y-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
             <label className="font-semibold text-gray-700 w-full sm:w-32 shrink-0 text-sm md:text-base">Select Month</label>
-            <select value={planMonth} onChange={(e) => setPlanMonth(e.target.value)} className="w-full sm:flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm">
-              {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <SelectMenu
+              className="w-full sm:flex-1"
+              value={planMonth}
+              onChange={setPlanMonth}
+              options={availableMonths.map(m => ({ value: m, label: m }))}
+            />
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
             <label className="font-semibold text-gray-700 w-full sm:w-32 shrink-0 text-sm md:text-base">Total Income</label>
@@ -369,9 +385,11 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
                 <input type="text" value={u1Name} onChange={(e) => setU1Name(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
               <label className="font-semibold text-gray-700 block text-sm md:text-base pt-2">Person 1 Currency</label>
-              <select value={u1Currency} onChange={(e) => setU1Currency(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.label}</option>)}
-              </select>
+              <SelectMenu
+                value={u1Currency}
+                onChange={setU1Currency}
+                options={CURRENCIES.map(c => ({ value: c.code, label: `${c.code} — ${c.label}` }))}
+              />
             </div>
             <div className="space-y-2">
               <label className="font-semibold text-gray-700 block text-sm md:text-base">Person 2 Name</label>
@@ -380,9 +398,11 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
                 <input type="text" value={u2Name} onChange={(e) => setU2Name(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm" />
               </div>
               <label className="font-semibold text-gray-700 block text-sm md:text-base pt-2">Person 2 Currency</label>
-              <select value={u2Currency} onChange={(e) => setU2Currency(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm">
-                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.label}</option>)}
-              </select>
+              <SelectMenu
+                value={u2Currency}
+                onChange={setU2Currency}
+                options={CURRENCIES.map(c => ({ value: c.code, label: `${c.code} — ${c.label}` }))}
+              />
             </div>
           </div>
           <div className="pt-4 flex justify-end border-t border-gray-100">

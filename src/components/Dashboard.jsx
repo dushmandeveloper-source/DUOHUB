@@ -5,6 +5,7 @@ import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
 import { toast } from '../ui';
 import CategoryPicker from './CategoryPicker';
+import SelectMenu from './SelectMenu';
 
 export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo, categoryBudgets, incomes }) {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -93,13 +94,12 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           <Calendar size={18} className="text-indigo-500" />
           Financial Snapshot
         </h2>
-        <select
+        <SelectMenu
+          className="w-full sm:w-52"
           value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="w-full sm:w-auto bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-        >
-          {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
+          onChange={setSelectedMonth}
+          options={availableMonths.map(m => ({ value: m, label: m }))}
+        />
       </div>
 
       {/* UPCOMING ACTION ITEMS */}

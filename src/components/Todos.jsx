@@ -3,11 +3,15 @@ import { Plus, Filter, Calendar, CheckSquare, Trash2, Bell } from 'lucide-react'
 import { monthLabel } from '../data';
 import { getNotifyTime } from '../notifications';
 import { confirmDialog, toast } from '../ui';
+import SelectMenu from './SelectMenu';
+import QuickDates from './QuickDates';
+import { todayISO, addDaysISO } from '../lib/dates';
 
 export default function Todos({ todos, onToggle, onAdd, onDelete, users, currentUser, availableMonths }) {
+  const todayStr = todayISO();
   const [task, setTask] = useState('');
   const [assignTo, setAssignTo] = useState('shared');
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState(todayStr); // defaults to today
   const [userFilter, setUserFilter] = useState(currentUser.id);
   const [monthFilter, setMonthFilter] = useState('all');
 
@@ -22,7 +26,7 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
     onAdd(task, assignTo, dueDate);
     toast('Task added');
     setTask('');
-    setDueDate('');
+    setDueDate(todayStr);
   };
 
   const filteredTodos = todos.filter(t => {
@@ -34,20 +38,17 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
     }
     return true;
   });
-  const todayStr = new Date().toISOString().split('T')[0];
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
         <h3 className="text-lg font-bold">Action Items</h3>
         <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
-          <div className="flex items-center gap-2 bg-white px-3 py-2 md:py-1.5 rounded-xl md:rounded-full border border-gray-200 shadow-sm w-full sm:w-auto">
-            <Filter size={14} className="text-gray-400 shrink-0" />
-            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="bg-transparent border-none focus:outline-none text-xs md:text-sm font-medium text-gray-700 cursor-pointer w-full">
-              <option value="all">All Dates</option>
-              {availableMonths.map(month => <option key={month} value={month}>{month}</option>)}
-            </select>
-          </div>
+          <SelectMenu
+            className="w-full sm:w-44"
+            value={monthFilter}
+            onChange={setMonthFilter}
+            options={[{ value: 'all', label: 'All Dates' }, ...availableMonths.map(m => ({ value: m, label: m }))]}
+          />
           <div className="flex bg-gray-200 rounded-xl md:rounded-full p-1 w-full sm:w-auto">
             <button onClick={() => setUserFilter('all')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium ${userFilter === 'all' ? 'bg-white shadow' : 'text-gray-500'}`}>All</button>
             <button onClick={() => setUserFilter('u1')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium truncate ${userFilter === 'u1' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>{users[0].name}</button>
@@ -57,11 +58,16 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col md:flex-row bg-white p-3 md:p-2 rounded-2xl md:rounded-full shadow-sm border border-gray-100 gap-3 md:gap-2">
-        <select value={assignTo} onChange={(e) => setAssignTo(e.target.value)} className="w-full md:w-auto bg-gray-50 border-none outline-none text-sm font-medium rounded-xl md:rounded-full px-4 py-3 md:py-2 shrink-0 cursor-pointer">
-          <option value="shared">Shared</option>
-          <option value="u1">{users[0].name}</option>
-          <option value="u2">{users[1].name}</option>
-        </select>
+        <SelectMenu
+          className="w-full md:w-40 shrink-0"
+          value={assignTo}
+          onChange={setAssignTo}
+          options={[
+            { value: 'shared', label: 'Shared' },
+            { value: 'u1', label: users[0].name },
+            { value: 'u2', label: users[1].name },
+          ]}
+        />
         <input type="text" value={task} onChange={(e) => setTask(e.target.value)} placeholder="Add a new task..." className="flex-1 bg-transparent px-4 py-3 md:py-2 focus:outline-none text-sm border md:border-none border-gray-100 rounded-xl md:rounded-none" />
         <div className="flex items-center gap-2 px-4 md:px-2 py-3 md:py-0 bg-gray-50 rounded-xl md:rounded-full border border-transparent focus-within:border-gray-200 transition-colors w-full md:w-auto">
           <Calendar size={16} className="text-gray-400 shrink-0" />
@@ -71,11 +77,23 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
           <Plus size={20} className="hidden md:block" /><span className="md:hidden font-bold">Add Task</span>
         </button>
       </form>
-      {dueDate && (
-        <p className="text-xs text-gray-400 flex items-center gap-1.5 -mt-3 px-2">
-          <Bell size={12} /> You'll get an alert for this task on {dueDate} after {getNotifyTime()} (change the time in Profile settings).
-        </p>
-      )}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 -mt-3 px-2">
+        <QuickDates
+          value={dueDate}
+          onChange={setDueDate}
+          options={[
+            { label: 'Today', date: todayStr },
+            { label: 'Tomorrow', date: addDaysISO(1) },
+            { label: 'In 3 Days', date: addDaysISO(3) },
+            { label: 'Next Week', date: addDaysISO(7) },
+          ]}
+        />
+        {dueDate && (
+          <p className="text-xs text-gray-400 flex items-center gap-1.5">
+            <Bell size={12} /> Alert on {dueDate} after {getNotifyTime()}
+          </p>
+        )}
+      </div>
 
       <div className="space-y-2">
         {filteredTodos.map(todo => {
