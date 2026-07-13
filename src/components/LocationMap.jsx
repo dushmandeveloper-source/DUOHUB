@@ -33,7 +33,7 @@ function popupHtml(user) {
 }
 
 // Full-screen map modal showing both partners' shared GPS locations.
-export default function LocationMap({ users, currentUser, onClose, onRefresh }) {
+export default function LocationMap({ users, currentUser, live, onClose, onRefresh }) {
   const mapDivRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef({});
@@ -113,7 +113,15 @@ export default function LocationMap({ users, currentUser, onClose, onRefresh }) 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-base md:text-lg font-bold text-gray-800">Where is {partner.name}? 💕</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base md:text-lg font-bold text-gray-800">Where is {partner.name}? 💕</h2>
+            {live && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                LIVE
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5">
             {currentUser.shareLocation && (
               <button

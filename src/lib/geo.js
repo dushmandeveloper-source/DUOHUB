@@ -25,6 +25,21 @@ export function getCurrentPosition() {
   });
 }
 
+// Follow the device position; returns a function that stops watching.
+export function startWatch(onFix) {
+  if (!navigator.geolocation) return () => {};
+  const id = navigator.geolocation.watchPosition(
+    (pos) => onFix({
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+    }),
+    () => {}, // errors are non-fatal — the next fix retries automatically
+    { enableHighAccuracy: true, maximumAge: 10000 }
+  );
+  return () => navigator.geolocation.clearWatch(id);
+}
+
 // Great-circle distance between two {lat,lng} points, in kilometers.
 export function haversineKm(a, b) {
   const R = 6371;

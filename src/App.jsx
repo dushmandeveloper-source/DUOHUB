@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon, MapPin } from 'lucide-react';
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { showSystemNotification, getNotifyTime, enableBackgroundCheck } from './notifications';
 import { isCloudEnabled } from './lib/supabase';
 import { onUpdateAvailable, applyUpdate } from './updater';
-import { getCurrentPosition } from './lib/geo';
+import { getCurrentPosition, startWatch, haversineKm } from './lib/geo';
 import { toast } from './ui';
 import * as db from './lib/db';
 import { NavItem, MobileNavItem } from './components/Nav';
@@ -44,7 +44,7 @@ export default function App() {
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
   const [updateReady, setUpdateReady] = useState(false);
   const [showLocationMap, setShowLocationMap] = useState(false);
-  const autoLocationRan = useRef(false);
+  const [liveTracking, setLiveTracking] = useState(false);
 
   useEffect(() => onUpdateAvailable(() => setUpdateReady(true)), []);
 
@@ -342,16 +342,18 @@ export default function App() {
     }
   };
 
-  // Silent auto-refresh once per app load: only if sharing is on, permission
-  // is already granted (never prompt), and the last fix isn't fresh already.
+  // Live tracking while the app is open: when sharing is on and permission is
+  // already granted (never prompt), follow the GPS and push an update whenever
+  // we move ~25m+ or every 5 minutes, whichever comes first.
   useEffect(() => {
-    if (autoLocationRan.current) return;
     if (cloudStatus !== 'online' || !currentUser.shareLocation) return;
-    autoLocationRan.current = true;
-
-    const lastUpdate = currentUser.locationUpdatedAt;
-    const isFresh = lastUpdate && (Date.now() - new Date(lastUpdate).getTime()) < 10 * 60 * 1000;
-    if (isFresh) return;
+    let stop = null;
+    let cancelled = false;
+    const lastSaved = {
+      lat: currentUser.lat,
+      lng: currentUser.lng,
+      t: currentUser.locationUpdatedAt ? new Date(currentUser.locationUpdatedAt).getTime() : 0,
+    };
 
     (async () => {
       try {
@@ -362,9 +364,31 @@ export default function App() {
       } catch {
         // Permissions API unavailable — proceed, since enabling share_location already required a grant.
       }
-      refreshMyLocation();
+      if (cancelled) return;
+      setLiveTracking(true);
+      stop = startWatch((pos) => {
+        const now = Date.now();
+        const moved = lastSaved.lat == null || haversineKm(lastSaved, pos) > 0.025;
+        const stale = now - lastSaved.t > 5 * 60 * 1000;
+        if (!moved && !stale) return;
+        lastSaved.lat = pos.lat;
+        lastSaved.lng = pos.lng;
+        lastSaved.t = now;
+        setUsers(prev => prev.map(u => u.id === currentUserId
+          ? { ...u, lat: pos.lat, lng: pos.lng, locationAccuracy: pos.accuracy, locationUpdatedAt: new Date(now).toISOString() }
+          : u));
+        db.updateLocation(currentUserId, pos).catch(logSyncError);
+      });
     })();
-  }, [cloudStatus, currentUser.shareLocation, currentUser.locationUpdatedAt, refreshMyLocation]);
+
+    return () => {
+      cancelled = true;
+      setLiveTracking(false);
+      if (stop) stop();
+    };
+    // lastSaved is seeded from the profile once at watch start — deliberately not reactive.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudStatus, currentUser.shareLocation, currentUserId]);
 
   const renderTab = () => {
     switch (activeTab) {
@@ -393,6 +417,7 @@ export default function App() {
         <LocationMap
           users={users}
           currentUser={currentUser}
+          live={liveTracking}
           onClose={() => setShowLocationMap(false)}
           onRefresh={refreshMyLocation}
         />
