@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Smile, Sticker, ImagePlus, Send, Trash2 } from 'lucide-react';
+import { Smile, Sticker, ImagePlus, Send, Trash2, Reply, Copy, X } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import { compressImage } from '../lib/imageCompression';
 import { confirmDialog, toast } from '../ui';
@@ -48,61 +48,76 @@ function groupByDate(messages) {
   return groups;
 }
 
-function MessageBubble({ msg, isOwn, personColor, onDelete, onOpenImage }) {
+function messagePreview(m) {
+  if (!m) return 'Original message was deleted';
+  if (m.kind === 'image') return `📷 Photo${m.body ? ` · ${m.body}` : ''}`;
+  if (m.kind === 'video') return '🎥 Video';
+  return m.body || '';
+}
+
+// Long-press (touch) or right-click opens the message action menu.
+function usePressActions(onAction) {
+  const timer = useRef(null);
+  return {
+    onTouchStart: () => { timer.current = setTimeout(onAction, 450); },
+    onTouchEnd: () => clearTimeout(timer.current),
+    onTouchMove: () => clearTimeout(timer.current),
+    onContextMenu: (e) => { e.preventDefault(); onAction(); },
+  };
+}
+
+function QuoteBlock({ quoted, isOwn, nameOf, onJumpTo }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); if (quoted) onJumpTo(quoted.id); }}
+      className={`w-full text-left mb-1 px-2.5 py-1.5 rounded-lg border-l-2 ${isOwn ? 'bg-white/20 border-white/60' : 'bg-white border-gray-300'}`}
+    >
+      <span className={`block text-[11px] font-bold ${isOwn ? 'text-white/90' : 'text-gray-600'}`}>
+        {quoted ? nameOf(quoted.sender) : ''}
+      </span>
+      <span className={`block text-xs truncate ${isOwn ? 'text-white/80' : 'text-gray-500'}`}>
+        {messagePreview(quoted)}
+      </span>
+    </button>
+  );
+}
+
+function MessageBubble({ msg, isOwn, personColor, onOpenImage, onAction, quoted, nameOf, onJumpTo }) {
   const time = new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const press = usePressActions(() => onAction(msg));
 
   if (msg.kind === 'sticker') {
     return (
-      <div className={`group flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-        <div className="flex items-center gap-1">
-          {isOwn && (
-            <button
-              onClick={() => onDelete(msg.id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1"
-              title="Delete message"
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
-          <span className="text-7xl leading-none">{msg.body}</span>
-        </div>
+      <div id={`msg-${msg.id}`} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+        <span className="text-7xl leading-none select-none cursor-pointer" {...press}>{msg.body}</span>
         <MessageMeta time={time} isOwn={isOwn} seen={msg.seen} />
       </div>
     );
   }
 
   return (
-    <div className={`group flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-      <div className={`flex items-center gap-1 max-w-[85%] min-w-0 ${isOwn ? 'flex-row' : 'flex-row-reverse'}`}>
-        <div
-          className={`min-w-0 ${msg.kind === 'text' ? 'px-3.5 py-2' : 'p-1.5'} rounded-2xl ${isOwn ? `${personColor} text-white rounded-br-md` : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}
-        >
-          {msg.kind === 'text' && (
-            <p className="whitespace-pre-wrap break-words text-sm">{msg.body}</p>
-          )}
-          {msg.kind === 'image' && (
-            <>
-              <img
-                src={msg.mediaUrl}
-                alt=""
-                className="max-h-64 max-w-full rounded-xl object-cover cursor-pointer"
-                onClick={() => onOpenImage(msg.mediaUrl)}
-              />
-              {msg.body && <p className="whitespace-pre-wrap break-words text-sm mt-1.5 px-1">{msg.body}</p>}
-            </>
-          )}
-          {msg.kind === 'video' && (
-            <video controls playsInline className="max-h-64 max-w-full rounded-xl" src={msg.mediaUrl} />
-          )}
-        </div>
-        {isOwn && (
-          <button
-            onClick={() => onDelete(msg.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1 shrink-0"
-            title="Delete message"
-          >
-            <Trash2 size={13} />
-          </button>
+    <div id={`msg-${msg.id}`} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+      <div className={`max-w-[85%] min-w-0 select-none md:select-text ${msg.kind === 'text' ? 'px-3.5 py-2' : 'p-1.5'} rounded-2xl ${isOwn ? `${personColor} text-white rounded-br-md` : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}
+        {...press}
+      >
+        {msg.replyTo != null && <QuoteBlock quoted={quoted} isOwn={isOwn} nameOf={nameOf} onJumpTo={onJumpTo} />}
+        {msg.kind === 'text' && (
+          <p className="whitespace-pre-wrap break-words text-sm">{msg.body}</p>
+        )}
+        {msg.kind === 'image' && (
+          <>
+            <img
+              src={msg.mediaUrl}
+              alt=""
+              className="max-h-64 max-w-full rounded-xl object-cover cursor-pointer"
+              onClick={() => onOpenImage(msg.mediaUrl)}
+            />
+            {msg.body && <p className="whitespace-pre-wrap break-words text-sm mt-1.5 px-1">{msg.body}</p>}
+          </>
+        )}
+        {msg.kind === 'video' && (
+          <video controls playsInline className="max-h-64 max-w-full rounded-xl" src={msg.mediaUrl} />
         )}
       </div>
       <MessageMeta time={time} isOwn={isOwn} seen={msg.seen} />
@@ -125,6 +140,8 @@ export default function Chat({ messages, currentUser, partnerUser, partnerOnline
   const [showStickers, setShowStickers] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [actionMsg, setActionMsg] = useState(null);
+  const [replyTo, setReplyTo] = useState(null);
 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -183,18 +200,25 @@ export default function Chat({ messages, currentUser, partnerUser, partnerOnline
   };
 
   const pickSticker = (emoji) => {
-    onSend({ kind: 'sticker', body: emoji });
+    onSend({ kind: 'sticker', body: emoji, replyTo: replyTo?.id });
+    setReplyTo(null);
     setShowStickers(false);
   };
 
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed || uploading) return;
-    onSend({ kind: 'text', body: trimmed });
+    onSend({ kind: 'text', body: trimmed, replyTo: replyTo?.id });
     setText('');
+    setReplyTo(null);
     setShowEmoji(false);
     setShowStickers(false);
   };
+
+  const msgById = {};
+  for (const m of messages) msgById[m.id] = m;
+  const nameOf = (id) => (id === currentUser.id ? 'You' : partnerUser.name);
+  const jumpTo = (id) => document.getElementById(`msg-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -227,13 +251,14 @@ export default function Chat({ messages, currentUser, partnerUser, partnerOnline
         }
         const ext = (file.name.split('.').pop() || file.type.split('/')[1] || 'mp4').toLowerCase();
         const url = await db.uploadChatMedia(file, ext);
-        onSend({ kind: 'video', mediaUrl: url, body: text.trim() || undefined });
+        onSend({ kind: 'video', mediaUrl: url, body: text.trim() || undefined, replyTo: replyTo?.id });
       } else {
         const compressed = await compressImage(file);
         const url = await db.uploadChatMedia(compressed, 'jpg');
-        onSend({ kind: 'image', mediaUrl: url, body: text.trim() || undefined });
+        onSend({ kind: 'image', mediaUrl: url, body: text.trim() || undefined, replyTo: replyTo?.id });
       }
       setText('');
+      setReplyTo(null);
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
     } catch (err) {
       toast(err.message || 'Could not send that.', 'error');
@@ -288,8 +313,11 @@ export default function Chat({ messages, currentUser, partnerUser, partnerOnline
                     msg={msg}
                     isOwn={msg.sender === currentUser.id}
                     personColor={personColor}
-                    onDelete={handleDelete}
                     onOpenImage={setLightboxUrl}
+                    onAction={setActionMsg}
+                    quoted={msg.replyTo != null ? msgById[msg.replyTo] : null}
+                    nameOf={nameOf}
+                    onJumpTo={jumpTo}
                   />
                 ))}
               </div>
@@ -324,6 +352,18 @@ export default function Chat({ messages, currentUser, partnerUser, partnerOnline
           </div>
         )}
 
+        {replyTo && (
+          <div className="flex items-center gap-2 mb-2 bg-white border border-gray-100 shadow-sm rounded-2xl px-3 py-2">
+            <div className={`w-1 self-stretch rounded-full shrink-0 ${bubbleColor(replyTo.sender)}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-gray-600">Replying to {nameOf(replyTo.sender)}</p>
+              <p className="text-xs text-gray-400 truncate">{messagePreview(replyTo)}</p>
+            </div>
+            <button onClick={() => setReplyTo(null)} className="text-gray-400 hover:text-gray-600 p-1 shrink-0" title="Cancel reply">
+              <X size={16} />
+            </button>
+          </div>
+        )}
         <div className="flex items-end gap-1.5 bg-white rounded-3xl shadow-sm border border-gray-100 p-2">
           <button
             onClick={() => { setShowEmoji(v => !v); setShowStickers(false); }}
@@ -371,6 +411,36 @@ export default function Chat({ messages, currentUser, partnerUser, partnerOnline
         </div>
         {uploading && <p className="text-xs text-gray-400 mt-1 px-2">Sending…</p>}
       </div>
+
+      {actionMsg && (
+        <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => setActionMsg(null)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-2 animate-[popIn_0.15s_ease-out]" onClick={(e) => e.stopPropagation()}>
+            <p className="text-xs text-gray-400 px-4 pt-2 pb-1 truncate">{messagePreview(actionMsg)}</p>
+            <button
+              onClick={() => { setReplyTo(actionMsg); setActionMsg(null); textareaRef.current?.focus(); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+            >
+              <Reply size={18} className="text-gray-400" /> Reply
+            </button>
+            {actionMsg.kind === 'text' && actionMsg.body && (
+              <button
+                onClick={() => { navigator.clipboard?.writeText(actionMsg.body); toast('Copied'); setActionMsg(null); }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+              >
+                <Copy size={18} className="text-gray-400" /> Copy
+              </button>
+            )}
+            {actionMsg.sender === currentUser.id && (
+              <button
+                onClick={() => { const id = actionMsg.id; setActionMsg(null); handleDelete(id); }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl hover:bg-red-50 transition-colors text-sm font-medium text-red-500"
+              >
+                <Trash2 size={18} /> Delete
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {lightboxUrl && (
         <ImageLightbox images={[lightboxUrl]} index={0} onClose={() => setLightboxUrl(null)} onIndexChange={() => {}} />

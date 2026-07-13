@@ -341,8 +341,8 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pings]);
 
-  const sendMessage = ({ kind, body, mediaUrl }) => {
-    const msg = { id: Date.now(), sender: currentUser.id, kind, body: body || null, mediaUrl: mediaUrl || null, seen: false, createdAt: new Date().toISOString() };
+  const sendMessage = ({ kind, body, mediaUrl, replyTo }) => {
+    const msg = { id: Date.now(), sender: currentUser.id, kind, body: body || null, mediaUrl: mediaUrl || null, replyTo: replyTo || null, seen: false, createdAt: new Date().toISOString() };
     setMessages(prev => [...prev, msg]);
     if (isCloudEnabled) db.addMessage(msg).catch(logSyncError);
   };
@@ -542,7 +542,7 @@ export default function App() {
   }[cloudStatus];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row font-sans text-gray-800 relative overflow-x-hidden">
+    <div className="h-dvh bg-gray-50 flex flex-col md:flex-row font-sans text-gray-800 relative overflow-hidden">
 
       <UIHost />
       {showLocationMap && (
@@ -583,7 +583,7 @@ export default function App() {
       )}
 
       {/* SIDEBAR (Desktop) */}
-      <div className="bg-white border-b md:border-r border-gray-200 w-full md:w-64 md:min-h-screen flex flex-row md:flex-col justify-between md:justify-start md:gap-6 items-center md:items-start p-4 md:p-6 sticky top-0 z-40 shadow-sm md:shadow-none shrink-0 h-16 md:h-auto">
+      <div className="bg-white border-b md:border-r border-gray-200 w-full md:w-64 md:h-full md:overflow-y-auto flex flex-row md:flex-col justify-between md:justify-start md:gap-6 items-center md:items-start p-4 md:p-6 z-40 shadow-sm md:shadow-none shrink-0 h-16">
         <div className="flex flex-row md:flex-col items-center md:items-start gap-2 md:gap-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-xl shadow-md shrink-0">
@@ -654,7 +654,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto h-[calc(100dvh-4rem)] md:h-dvh">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Chat owns the full content area (its own scroll + pinned input);
             every other tab flows and scrolls as a normal page. */}
         <div className={activeTab === 'chat' && cloudStatus !== 'connecting' && cloudStatus !== 'error'

@@ -72,6 +72,7 @@ const rowToMessage = (r) => ({
   kind: r.kind || 'text',
   body: r.body || null,
   mediaUrl: r.media_url || null,
+  replyTo: r.reply_to || null,
   seen: !!r.seen,
   createdAt: r.created_at,
 });
@@ -336,6 +337,7 @@ export const addMessage = (msg) =>
     kind: msg.kind,
     body: msg.body ?? null,
     media_url: msg.mediaUrl ?? null,
+    reply_to: msg.replyTo ?? null,
     seen: false,
   }).then(unwrap);
 
