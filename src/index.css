@@ -19,6 +19,11 @@
   to   { transform: translateY(0);    opacity: 1; }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* Slim, modern scrollbars instead of the chunky system ones */
 * {
   scrollbar-width: thin;

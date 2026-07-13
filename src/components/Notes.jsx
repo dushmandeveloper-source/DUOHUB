@@ -5,6 +5,7 @@ import SelectMenu from './SelectMenu';
 import RichTextEditor, { richTextStyles } from './RichTextEditor';
 import DrawingCanvas from './DrawingCanvas';
 import ImagePicker from './ImagePicker';
+import ImageLightbox from './ImageLightbox';
 import { NOTE_COLORS } from '../lib/noteColors';
 import * as db from '../lib/db';
 import { isCloudEnabled } from '../lib/supabase';
@@ -53,6 +54,7 @@ export default function Notes({ notes, onAdd, onEdit, onDelete, users, currentUs
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // { images, index } | null
 
   const [title, setTitle] = useState(emptyDraft.title);
   const [owner, setOwner] = useState(emptyDraft.owner);
@@ -206,9 +208,12 @@ export default function Notes({ notes, onAdd, onEdit, onDelete, users, currentUs
           </div>
 
           {drawing && (
-            <div className="rounded-xl overflow-hidden border border-black/10 bg-white">
+            <button
+              onClick={() => setLightbox({ images: [drawing, ...images], index: 0 })}
+              className="w-full rounded-xl overflow-hidden border border-black/10 bg-white block"
+            >
               <img src={drawing} alt="Drawing" className="w-full max-h-80 object-contain" />
-            </div>
+            </button>
           )}
 
           {content && (
@@ -230,16 +235,29 @@ export default function Notes({ notes, onAdd, onEdit, onDelete, users, currentUs
 
           {images.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {images.map(url => (
-                <a key={url} href={url} target="_blank" rel="noreferrer" className="w-20 h-20 rounded-lg overflow-hidden border border-black/10 shrink-0 block">
+              {images.map((url, i) => (
+                <button
+                  key={url}
+                  onClick={() => setLightbox({ images: drawing ? [drawing, ...images] : images, index: drawing ? i + 1 : i })}
+                  className="w-20 h-20 rounded-lg overflow-hidden border border-black/10 shrink-0 block"
+                >
                   <img src={url} alt="" className="w-full h-full object-cover" />
-                </a>
+                </button>
               ))}
             </div>
           )}
 
           <p className="text-[10px] text-gray-500">{formatTimestamp(activeNote.updatedAt)}</p>
         </div>
+
+        {lightbox && (
+          <ImageLightbox
+            images={lightbox.images}
+            index={lightbox.index}
+            onClose={() => setLightbox(null)}
+            onIndexChange={(i) => setLightbox(prev => ({ ...prev, index: i }))}
+          />
+        )}
       </div>
     );
   }
@@ -401,15 +419,22 @@ export default function Notes({ notes, onAdd, onEdit, onDelete, users, currentUs
                 {preview && <p className="text-sm text-gray-700 whitespace-pre-line">{preview}</p>}
                 {shownImgs.length > 0 && (
                   <div className="flex gap-1.5 mt-3">
-                    {shownImgs.map(url => (
-                      <div key={url} className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
+                    {shownImgs.map((url, i) => (
+                      <button
+                        key={url}
+                        onClick={(e) => { e.stopPropagation(); setLightbox({ images: imgs, index: i }); }}
+                        className="w-10 h-10 rounded-lg overflow-hidden shrink-0"
+                      >
                         <img src={url} alt="" className="w-full h-full object-cover" />
-                      </div>
+                      </button>
                     ))}
                     {overflow > 0 && (
-                      <div className="w-10 h-10 rounded-lg bg-black/10 flex items-center justify-center text-xs font-bold text-gray-700 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setLightbox({ images: imgs, index: shownImgs.length }); }}
+                        className="w-10 h-10 rounded-lg bg-black/10 flex items-center justify-center text-xs font-bold text-gray-700 shrink-0"
+                      >
                         +{overflow}
-                      </div>
+                      </button>
                     )}
                   </div>
                 )}
@@ -430,6 +455,15 @@ export default function Notes({ notes, onAdd, onEdit, onDelete, users, currentUs
       >
         <Plus size={24} />
       </button>
+
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndexChange={(i) => setLightbox(prev => ({ ...prev, index: i }))}
+        />
+      )}
     </div>
   );
 }

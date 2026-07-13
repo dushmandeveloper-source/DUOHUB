@@ -6,6 +6,7 @@ import { confirmDialog, toast } from '../ui';
 import SelectMenu from './SelectMenu';
 import QuickDates from './QuickDates';
 import ImagePicker from './ImagePicker';
+import ImageLightbox from './ImageLightbox';
 import { todayISO, addDaysISO } from '../lib/dates';
 import * as db from '../lib/db';
 import { isCloudEnabled } from '../lib/supabase';
@@ -19,6 +20,7 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
   const [dueDate, setDueDate] = useState(todayStr); // defaults to today
   const [images, setImages] = useState([]);
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [lightbox, setLightbox] = useState(null); // { images, index } | null
   const [userFilter, setUserFilter] = useState(currentUser.id);
   const [monthFilter, setMonthFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -261,15 +263,22 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
                     const overflow = imgs.length - shownImgs.length;
                     return (
                       <div className="flex gap-1.5 mt-1.5" onClick={(e) => e.stopPropagation()}>
-                        {shownImgs.map(url => (
-                          <a key={url} href={url} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-lg overflow-hidden shrink-0 block border border-gray-200">
+                        {shownImgs.map((url, i) => (
+                          <button
+                            key={url}
+                            onClick={() => setLightbox({ images: imgs, index: i })}
+                            className="w-10 h-10 rounded-lg overflow-hidden shrink-0 block border border-gray-200"
+                          >
                             <img src={url} alt="" className="w-full h-full object-cover" />
-                          </a>
+                          </button>
                         ))}
                         {overflow > 0 && (
-                          <div className="w-10 h-10 rounded-lg bg-black/10 flex items-center justify-center text-xs font-bold text-gray-700 shrink-0">
+                          <button
+                            onClick={() => setLightbox({ images: imgs, index: shownImgs.length })}
+                            className="w-10 h-10 rounded-lg bg-black/10 flex items-center justify-center text-xs font-bold text-gray-700 shrink-0"
+                          >
                             +{overflow}
-                          </div>
+                          </button>
                         )}
                       </div>
                     );
@@ -326,6 +335,15 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
         {filteredTodos.length === 0 && (<div className="text-center py-10 text-gray-400 font-medium text-sm">No tasks found for these filters.</div>)}
         </div>
       </div>
+
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndexChange={(i) => setLightbox(prev => ({ ...prev, index: i }))}
+        />
+      )}
     </div>
   );
 }

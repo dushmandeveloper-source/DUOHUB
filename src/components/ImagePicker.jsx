@@ -1,16 +1,19 @@
-import { useRef } from 'react';
-import { ImagePlus, Loader2, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ImagePlus, Loader2, X, Camera, Images } from 'lucide-react';
 import { toast } from '../ui';
 import { compressImage } from '../lib/imageCompression';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 // Shared image-attachment control used by both Notes and Todos: a button
-// that opens a file picker, compresses each selected image client-side,
-// uploads it via `uploadFn`, then reports the resulting URL via `onAdd`.
-// Renders a small thumbnail grid below with hover-to-remove.
+// that opens a small choice (camera or gallery, both support multiple shots/
+// files), compresses each selected image client-side, uploads it via
+// `uploadFn`, then reports the resulting URL via `onAdd`. Renders a small
+// thumbnail grid below with hover-to-remove.
 export default function ImagePicker({ images, onAdd, onRemove, uploadingCount, setUploadingCount, uploadFn }) {
-  const fileInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleFiles = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -41,16 +44,45 @@ export default function ImagePicker({ images, onAdd, onRemove, uploadingCount, s
 
   return (
     <div>
-      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploadingCount > 0}
-        className="flex items-center gap-2 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {uploadingCount > 0 ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
-        {uploadingCount > 0 ? 'Uploading…' : 'Add Image'}
-      </button>
+      {/* Gallery: multi-select from existing photos */}
+      <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
+      {/* Camera: capture="environment" opens the device camera directly on
+          mobile. Browsers don't support multi-shot camera capture in one
+          session, so this fires per tap — call it again for another photo. */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFiles} />
+
+      <div className="relative inline-block">
+        <button
+          type="button"
+          onClick={() => setMenuOpen(o => !o)}
+          disabled={uploadingCount > 0}
+          className="flex items-center gap-2 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {uploadingCount > 0 ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+          {uploadingCount > 0 ? 'Uploading…' : 'Add Image'}
+        </button>
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+            <div className="absolute z-20 left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden animate-[popIn_0.12s_ease-out] min-w-[10rem]">
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); cameraInputRef.current?.click(); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Camera size={16} /> Take Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); galleryInputRef.current?.click(); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Images size={16} /> Choose from Gallery
+              </button>
+            </div>
+          </>
+        )}
+      </div>
       {images.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-3">
           {images.map((url) => (
