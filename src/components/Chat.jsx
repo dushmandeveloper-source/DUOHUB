@@ -73,9 +73,9 @@ function MessageBubble({ msg, isOwn, personColor, onDelete, onOpenImage }) {
 
   return (
     <div className={`group flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-      <div className={`flex items-center gap-1 ${isOwn ? 'flex-row' : 'flex-row-reverse'}`}>
+      <div className={`flex items-center gap-1 max-w-[85%] min-w-0 ${isOwn ? 'flex-row' : 'flex-row-reverse'}`}>
         <div
-          className={`max-w-[75%] ${msg.kind === 'text' ? 'px-3.5 py-2' : 'p-1.5'} rounded-2xl ${isOwn ? `${personColor} text-white rounded-br-md` : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}
+          className={`min-w-0 ${msg.kind === 'text' ? 'px-3.5 py-2' : 'p-1.5'} rounded-2xl ${isOwn ? `${personColor} text-white rounded-br-md` : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}
         >
           {msg.kind === 'text' && (
             <p className="whitespace-pre-wrap break-words text-sm">{msg.body}</p>
@@ -85,14 +85,14 @@ function MessageBubble({ msg, isOwn, personColor, onDelete, onOpenImage }) {
               <img
                 src={msg.mediaUrl}
                 alt=""
-                className="max-h-64 rounded-xl object-cover cursor-pointer"
+                className="max-h-64 max-w-full rounded-xl object-cover cursor-pointer"
                 onClick={() => onOpenImage(msg.mediaUrl)}
               />
               {msg.body && <p className="whitespace-pre-wrap break-words text-sm mt-1.5 px-1">{msg.body}</p>}
             </>
           )}
           {msg.kind === 'video' && (
-            <video controls playsInline className="max-h-64 rounded-xl" src={msg.mediaUrl} />
+            <video controls playsInline className="max-h-64 max-w-full rounded-xl" src={msg.mediaUrl} />
           )}
         </div>
         {isOwn && (
@@ -250,7 +250,7 @@ export default function Chat({ messages, currentUser, partnerUser, partnerOnline
   const groups = groupByDate(messages);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)] -mx-4 md:-mx-8 -mt-0 px-4 md:px-8">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex items-center gap-3 shrink-0 mb-3">
         {partnerUser.avatarUrl ? (

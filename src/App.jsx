@@ -654,8 +654,13 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto h-[calc(100vh-4rem)] md:h-screen">
-        <div className="p-4 md:p-8 w-full max-w-6xl mx-auto pb-24 md:pb-8">
+      <div className="flex-1 overflow-y-auto h-[calc(100dvh-4rem)] md:h-dvh">
+        {/* Chat owns the full content area (its own scroll + pinned input);
+            every other tab flows and scrolls as a normal page. */}
+        <div className={activeTab === 'chat' && cloudStatus !== 'connecting' && cloudStatus !== 'error'
+          ? 'p-4 md:p-8 w-full max-w-6xl mx-auto h-full pb-20 md:pb-8 flex flex-col min-h-0'
+          : 'p-4 md:p-8 w-full max-w-6xl mx-auto pb-24 md:pb-8'}>
+        {activeTab !== 'chat' && (
         <header className="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
           <div className="flex items-center gap-3">
             {currentUser.avatarUrl && (
@@ -672,6 +677,7 @@ export default function App() {
             </div>
           </div>
         </header>
+        )}
 
         {cloudStatus === 'connecting' ? (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
