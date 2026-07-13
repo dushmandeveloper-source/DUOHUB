@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 
 export const INITIAL_USERS = [
-  { id: 'u1', name: 'Dushman', currency: 'LKR', color: 'bg-blue-500', lightColor: 'bg-blue-100', text: 'text-blue-500' },
-  { id: 'u2', name: 'Hasini', currency: 'CNY', color: 'bg-rose-500', lightColor: 'bg-rose-100', text: 'text-rose-500' }
+  { id: 'u1', name: 'Dushman', currency: 'LKR', color: 'bg-blue-500', lightColor: 'bg-blue-100', text: 'text-blue-500', timezone: 'Asia/Colombo', hiddenCards: [] },
+  { id: 'u2', name: 'Hasini', currency: 'CNY', color: 'bg-rose-500', lightColor: 'bg-rose-100', text: 'text-rose-500', timezone: 'Asia/Shanghai', hiddenCards: [] }
 ];
 
 export const CATEGORIES = [

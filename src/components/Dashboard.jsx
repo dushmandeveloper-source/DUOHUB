@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote, Clock } from 'lucide-react';
+import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote, Clock, Settings } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
@@ -7,11 +7,57 @@ import { toast } from '../ui';
 import CategoryPicker from './CategoryPicker';
 import SelectMenu from './SelectMenu';
 
-export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onSetTodoStatus, categoryBudgets, incomes }) {
+const CARD_LABELS = {
+  actionItems: 'Action Items',
+  waiting: 'Waiting',
+  overview: 'Overview',
+  categoryBudgets: 'Category Budgets',
+  quickExpense: 'Quick Log Expense',
+  savingsGoal: 'Savings Goal',
+};
+
+// Small inline popover with a single "Hide/Show this card" action, used by the
+// gear icon on each dashboard card's header row.
+function CardMenu({ cardKey, hiddenCards, onToggleCard, open, onOpenChange, light = false }) {
+  const isHidden = hiddenCards.includes(cardKey);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => onOpenChange(open ? null : cardKey)}
+        className={light ? 'text-indigo-200 hover:text-white transition-colors p-2' : 'text-gray-300 hover:text-gray-600 transition-colors p-2'}
+        title="Card settings"
+      >
+        <Settings size={16} />
+      </button>
+      {open && (
+        <div className="absolute z-20 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden animate-[popIn_0.12s_ease-out]">
+          <button
+            type="button"
+            onClick={() => { onToggleCard(cardKey); onOpenChange(null); }}
+            className="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            {isHidden ? 'Show this card' : 'Hide this card'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Dashboard({ expenses, savingsGoal, currentUser, users, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onSetTodoStatus, categoryBudgets, incomes, hiddenCards = [], onToggleCard }) {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [editName, setEditName] = useState(savingsGoal.name);
   const [editTarget, setEditTarget] = useState(savingsGoal.target);
   const [addAmount, setAddAmount] = useState('');
+  const [openMenuKey, setOpenMenuKey] = useState(null);
+  const [now, setNow] = useState(new Date());
+
+  // Live world-clock tick — 30s is plenty for a minute-resolution display.
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 30 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fm = (value) => formatMoney(value, currentUser.currency);
 
@@ -107,10 +153,44 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
         />
       </div>
 
+      {/* World Clock */}
+      {users && users.length > 0 && (
+        <div className="flex flex-wrap items-center gap-4 bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
+          <Clock size={14} className="text-indigo-400 shrink-0" />
+          {users.map(u => (
+            <div key={u.id} className="flex items-center gap-2 text-sm">
+              <span className={`w-2 h-2 rounded-full ${u.color}`}></span>
+              <span className="font-medium text-gray-600">{u.name}</span>
+              <span className="text-gray-400 font-mono">
+                {now.toLocaleTimeString('en-US', { timeZone: u.timezone || 'UTC', hour: '2-digit', minute: '2-digit', hour12: true })}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Hidden cards strip */}
+      {hiddenCards.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-gray-400 font-medium">Hidden:</span>
+          {hiddenCards.map(key => (
+            <button
+              key={key}
+              onClick={() => onToggleCard(key)}
+              className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full hover:bg-gray-200 transition-colors"
+            >
+              {CARD_LABELS[key] || key} <span className="text-gray-400">×</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* UPCOMING ACTION ITEMS */}
+      {!hiddenCards.includes('actionItems') && (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6 flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold">Upcoming Action Items</h3>
+          <CardMenu cardKey="actionItems" hiddenCards={hiddenCards} onToggleCard={onToggleCard} open={openMenuKey === 'actionItems'} onOpenChange={setOpenMenuKey} />
         </div>
 
         <div className="space-y-3 flex-1">
@@ -138,12 +218,14 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           )}
         </div>
       </div>
+      )}
 
       {/* WAITING */}
-      {waitingTodos.length > 0 && (
+      {!hiddenCards.includes('waiting') && waitingTodos.length > 0 && (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold">Waiting</h3>
+            <CardMenu cardKey="waiting" hiddenCards={hiddenCards} onToggleCard={onToggleCard} open={openMenuKey === 'waiting'} onOpenChange={setOpenMenuKey} />
           </div>
 
           <div className="space-y-3 flex-1">
@@ -167,6 +249,12 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
       )}
 
       {/* OVERVIEW CHARTS & STATS */}
+      {!hiddenCards.includes('overview') && (
+      <>
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-bold text-gray-700">Overview</h3>
+        <CardMenu cardKey="overview" hiddenCards={hiddenCards} onToggleCard={onToggleCard} open={openMenuKey === 'overview'} onOpenChange={setOpenMenuKey} />
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -267,16 +355,22 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           )}
         </div>
       </div>
+      </>
+      )}
 
       {/* CATEGORY BUDGETS for the selected month */}
+      {!hiddenCards.includes('categoryBudgets') && (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
           <h3 className="text-lg font-bold">Category Budgets — {selectedMonth}</h3>
-          {topSpendEntry && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full self-start sm:self-auto">
-              <TrendingDown size={13} /> Highest spend: {topSpendCategory?.name || topSpendEntry[0]} · {fm(topSpendEntry[1])}
-            </span>
-          )}
+          <span className="flex items-center gap-2 self-start sm:self-auto">
+            {topSpendEntry && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full">
+                <TrendingDown size={13} /> Highest spend: {topSpendCategory?.name || topSpendEntry[0]} · {fm(topSpendEntry[1])}
+              </span>
+            )}
+            <CardMenu cardKey="categoryBudgets" hiddenCards={hiddenCards} onToggleCard={onToggleCard} open={openMenuKey === 'categoryBudgets'} onOpenChange={setOpenMenuKey} />
+          </span>
         </div>
 
         {budgetRows.length > 0 ? (
@@ -307,9 +401,15 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           <p className="text-sm text-gray-400">No category limits set yet — add them in the Analytics tab under "Category Budgets".</p>
         )}
       </div>
+      )}
 
+      {/* QUICK LOG EXPENSE */}
+      {!hiddenCards.includes('quickExpense') && (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
-        <h3 className="text-lg font-bold mb-4">Quick Log Expense</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Quick Log Expense</h3>
+          <CardMenu cardKey="quickExpense" hiddenCards={hiddenCards} onToggleCard={onToggleCard} open={openMenuKey === 'quickExpense'} onOpenChange={setOpenMenuKey} />
+        </div>
         <form onSubmit={handleQuickExpense} className="flex flex-col sm:flex-row gap-3">
           <input type="number" step="0.01" min="0" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full sm:w-32 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
           <input type="text" placeholder="What did you buy?" value={desc} onChange={(e) => setDesc(e.target.value)} className="w-full sm:flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
@@ -319,7 +419,10 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           <button type="submit" className="w-full sm:w-auto bg-gray-900 text-white rounded-xl px-6 py-3 font-medium hover:bg-gray-800 transition-colors active:scale-95 text-sm shrink-0">Save</button>
         </form>
       </div>
+      )}
 
+      {/* SAVINGS GOAL */}
+      {!hiddenCards.includes('savingsGoal') && (
       <div className="grid grid-cols-1 gap-6">
         <div className="bg-gradient-to-br from-indigo-900 to-purple-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
@@ -327,11 +430,14 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           <div className="relative z-10 w-full mb-6">
             <div className="flex justify-between items-center mb-1">
               <h3 className="text-indigo-200 font-medium text-xs md:text-sm tracking-wider uppercase">{currentUser.name}'s Savings Goal</h3>
-              {!isEditingGoal && (
-                <button onClick={() => setIsEditingGoal(true)} className="text-indigo-200 hover:text-white transition-colors p-2" title="Edit Goal">
-                  <Edit2 size={16} />
-                </button>
-              )}
+              <span className="flex items-center gap-1">
+                {!isEditingGoal && (
+                  <button onClick={() => setIsEditingGoal(true)} className="text-indigo-200 hover:text-white transition-colors p-2" title="Edit Goal">
+                    <Edit2 size={16} />
+                  </button>
+                )}
+                <CardMenu cardKey="savingsGoal" hiddenCards={hiddenCards} onToggleCard={onToggleCard} open={openMenuKey === 'savingsGoal'} onOpenChange={setOpenMenuKey} light />
+              </span>
             </div>
 
             {isEditingGoal ? (
@@ -368,6 +474,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
         </div>
 
       </div>
+      )}
     </div>
   );
 }

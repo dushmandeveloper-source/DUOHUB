@@ -67,7 +67,12 @@ export async function fetchAll() {
   ]);
 
   return {
-    profiles: Object.fromEntries(profiles.map(r => [r.id, { name: r.name, currency: r.currency || 'USD' }])),
+    profiles: Object.fromEntries(profiles.map(r => [r.id, {
+      name: r.name,
+      currency: r.currency || 'USD',
+      timezone: r.timezone || (r.id === 'u2' ? 'Asia/Shanghai' : 'Asia/Colombo'),
+      hiddenCards: Array.isArray(r.hidden_cards) ? r.hidden_cards : [],
+    }])),
     expenses: expenses.map(rowToExpense),
     todos: todos.map(rowToTodo),
     // plans grouped per person: { u1: { 'July 2026': {...} }, u2: {...} }
@@ -140,9 +145,12 @@ export const updateGoal = (owner, goal) =>
 
 export const updateProfiles = (u1, u2) =>
   Promise.all([
-    supabase.from('profiles').upsert({ id: 'u1', name: u1.name, currency: u1.currency }).then(unwrap),
-    supabase.from('profiles').upsert({ id: 'u2', name: u2.name, currency: u2.currency }).then(unwrap),
+    supabase.from('profiles').upsert({ id: 'u1', name: u1.name, currency: u1.currency, timezone: u1.timezone }).then(unwrap),
+    supabase.from('profiles').upsert({ id: 'u2', name: u2.name, currency: u2.currency, timezone: u2.timezone }).then(unwrap),
   ]);
+
+export const updateHiddenCards = (userId, hiddenCards) =>
+  supabase.from('profiles').update({ hidden_cards: hiddenCards }).eq('id', userId).then(unwrap);
 
 // Fires callback on any change made from another device.
 export function subscribeToChanges(onChange) {

@@ -7,7 +7,7 @@ import { confirmDialog, toast } from '../ui';
 import SelectMenu from './SelectMenu';
 import QuickDates from './QuickDates';
 import { todayISO, addDaysISO } from '../lib/dates';
-import { CURRENCIES, formatMoney } from '../lib/currency';
+import { CURRENCIES, TIMEZONES, formatMoney } from '../lib/currency';
 
 function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
   const today = todayISO();
@@ -289,12 +289,16 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
   const [u2Name, setU2Name] = useState(users[1].name);
   const [u1Currency, setU1Currency] = useState(users[0].currency || 'USD');
   const [u2Currency, setU2Currency] = useState(users[1].currency || 'USD');
+  const [u1Timezone, setU1Timezone] = useState(users[0].timezone || 'Asia/Colombo');
+  const [u2Timezone, setU2Timezone] = useState(users[1].timezone || 'Asia/Shanghai');
 
   useEffect(() => {
     setU1Name(users[0].name);
     setU2Name(users[1].name);
     setU1Currency(users[0].currency || 'USD');
     setU2Currency(users[1].currency || 'USD');
+    setU1Timezone(users[0].timezone || 'Asia/Colombo');
+    setU2Timezone(users[1].timezone || 'Asia/Shanghai');
   }, [users]);
 
   const [planMonth, setPlanMonth] = useState(currentMonthStr);
@@ -309,7 +313,7 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
 
   const handleProfileSubmit = (e) => {
     e.preventDefault();
-    onUpdateProfile({ name: u1Name, currency: u1Currency }, { name: u2Name, currency: u2Currency });
+    onUpdateProfile({ name: u1Name, currency: u1Currency, timezone: u1Timezone }, { name: u2Name, currency: u2Currency, timezone: u2Timezone });
     toast('Profiles updated');
   };
 
@@ -390,6 +394,12 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
                 onChange={setU1Currency}
                 options={CURRENCIES.map(c => ({ value: c.code, label: `${c.code} — ${c.label}` }))}
               />
+              <label className="font-semibold text-gray-700 block text-sm md:text-base pt-2">Person 1 Timezone</label>
+              <SelectMenu
+                value={u1Timezone}
+                onChange={setU1Timezone}
+                options={TIMEZONES.map(t => ({ value: t.tz, label: t.label }))}
+              />
             </div>
             <div className="space-y-2">
               <label className="font-semibold text-gray-700 block text-sm md:text-base">Person 2 Name</label>
@@ -402,6 +412,12 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
                 value={u2Currency}
                 onChange={setU2Currency}
                 options={CURRENCIES.map(c => ({ value: c.code, label: `${c.code} — ${c.label}` }))}
+              />
+              <label className="font-semibold text-gray-700 block text-sm md:text-base pt-2">Person 2 Timezone</label>
+              <SelectMenu
+                value={u2Timezone}
+                onChange={setU2Timezone}
+                options={TIMEZONES.map(t => ({ value: t.tz, label: t.label }))}
               />
             </div>
           </div>

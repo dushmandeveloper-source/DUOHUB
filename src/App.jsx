@@ -268,9 +268,16 @@ export default function App() {
     if (isCloudEnabled) db.updateProfiles(u1, u2).catch(logSyncError);
   };
 
+  const toggleDashboardCard = (cardKey) => {
+    const current = currentUser.hiddenCards || [];
+    const next = current.includes(cardKey) ? current.filter(k => k !== cardKey) : [...current, cardKey];
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, hiddenCards: next } : u));
+    if (isCloudEnabled) db.updateHiddenCards(currentUser.id, next).catch(logSyncError);
+  };
+
   const renderTab = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onSetTodoStatus={setTodoStatus} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
+      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} users={users} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onSetTodoStatus={setTodoStatus} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} hiddenCards={currentUser.hiddenCards || []} onToggleCard={toggleDashboardCard} />;
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={myCategoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onSetStatus={setTodoStatus} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
