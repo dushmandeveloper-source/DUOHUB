@@ -29,6 +29,7 @@ const rowToTodo = (r) => {
     completed: status === 'done',
     status,
     dueDate: r.due_date || '',
+    images: Array.isArray(r.images) ? r.images : [],
   };
 };
 
@@ -39,6 +40,7 @@ const todoToRow = (t) => ({
   completed: t.completed,
   status: t.status || (t.completed ? 'done' : 'pending'),
   due_date: t.dueDate || null,
+  images: t.images || [],
 });
 
 function unwrap({ data, error }) {
@@ -60,6 +62,8 @@ const rowToNote = (r) => ({
   content: r.content,
   owner: r.owner,
   images: Array.isArray(r.images) ? r.images : [],
+  color: r.color || 'yellow',
+  drawing: r.drawing || null,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -70,6 +74,8 @@ const noteToRow = (n) => ({
   content: n.content,
   owner: n.owner,
   images: n.images || [],
+  color: n.color || 'yellow',
+  drawing: n.drawing || null,
   created_at: n.createdAt,
   updated_at: n.updatedAt,
 });
@@ -145,6 +151,7 @@ export const updateTodo = (id, updates) =>
     text: updates.text,
     assignee: updates.assignee,
     due_date: updates.dueDate || null,
+    images: updates.images || [],
   }).eq('id', id).then(unwrap);
 
 export const deleteExpense = (id) =>
@@ -183,6 +190,8 @@ export const updateNote = (id, updates) =>
     content: updates.content,
     owner: updates.owner,
     images: updates.images,
+    color: updates.color,
+    drawing: updates.drawing,
     updated_at: new Date().toISOString(),
   }).eq('id', id).then(unwrap);
 
@@ -210,6 +219,11 @@ export async function deleteNoteImage(url) {
     console.error('Failed to delete note image:', err);
   }
 }
+
+// Todo image attachments reuse the same `note-images` bucket (same app,
+// same access pattern, no need for per-feature storage separation).
+export const uploadTodoImage = uploadNoteImage;
+export const deleteTodoImage = deleteNoteImage;
 
 // Fires callback on any change made from another device.
 export function subscribeToChanges(onChange) {

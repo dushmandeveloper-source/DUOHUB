@@ -194,9 +194,9 @@ export default function App() {
     if (isCloudEnabled) db.updateTodoStatus(id, status).catch(logSyncError);
   };
 
-  const addTodo = (text, assignee, dueDate) => {
+  const addTodo = (text, assignee, dueDate, images = []) => {
     if (!text.trim()) return;
-    const todo = { id: Date.now(), text, assignee, completed: false, status: 'pending', dueDate };
+    const todo = { id: Date.now(), text, assignee, completed: false, status: 'pending', dueDate, images };
     setTodos(prev => [todo, ...prev]);
     if (isCloudEnabled) db.addTodo(todo).catch(logSyncError);
   };

@@ -341,8 +341,30 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, users, o
           {chartData.length > 0 ? (
             <div className="w-full flex-1 min-h-48">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-                  <Pie data={chartData} cx="50%" cy="50%" innerRadius="50%" outerRadius="75%" paddingAngle={4} dataKey="value" stroke="none">
+                <PieChart margin={{ top: 20, right: 20, bottom: 4, left: 20 }}>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="50%"
+                    outerRadius="75%"
+                    paddingAngle={4}
+                    dataKey="value"
+                    stroke="none"
+                    isAnimationActive={false}
+                    label={({ cx, cy, midAngle, outerRadius, value }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = outerRadius + 14;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text x={x} y={y} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="fill-gray-600 text-[10px] font-bold">
+                          {fm(value)}
+                        </text>
+                      );
+                    }}
+                    labelLine={{ stroke: '#cbd5e1' }}
+                  >
                     {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
                   <Tooltip formatter={(value) => fm(value)} />

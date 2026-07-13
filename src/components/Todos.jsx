@@ -5,14 +5,20 @@ import { getNotifyTime } from '../notifications';
 import { confirmDialog, toast } from '../ui';
 import SelectMenu from './SelectMenu';
 import QuickDates from './QuickDates';
+import ImagePicker from './ImagePicker';
 import { todayISO, addDaysISO } from '../lib/dates';
+import * as db from '../lib/db';
+import { isCloudEnabled } from '../lib/supabase';
 
+const uploadImage = (file) => (isCloudEnabled ? db.uploadTodoImage(file) : Promise.resolve(URL.createObjectURL(file)));
 
 export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, users, currentUser, availableMonths }) {
   const todayStr = todayISO();
   const [task, setTask] = useState('');
   const [assignTo, setAssignTo] = useState('shared');
   const [dueDate, setDueDate] = useState(todayStr); // defaults to today
+  const [images, setImages] = useState([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [userFilter, setUserFilter] = useState(currentUser.id);
   const [monthFilter, setMonthFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -21,6 +27,8 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
   const [editText, setEditText] = useState('');
   const [editAssignee, setEditAssignee] = useState('shared');
   const [editDueDate, setEditDueDate] = useState('');
+  const [editImages, setEditImages] = useState([]);
+  const [editUploadingCount, setEditUploadingCount] = useState(0);
 
   // Default to the selected person's own tasks; follows the top toggle
   useEffect(() => {
@@ -30,10 +38,11 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!task.trim()) return;
-    onAdd(task, assignTo, dueDate);
+    onAdd(task, assignTo, dueDate, images);
     toast('Task added');
     setTask('');
     setDueDate(todayStr);
+    setImages([]);
   };
 
   const startEdit = (todo) => {
@@ -41,13 +50,14 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
     setEditText(todo.text);
     setEditAssignee(todo.assignee);
     setEditDueDate(todo.dueDate || '');
+    setEditImages(todo.images || []);
   };
 
   const cancelEdit = () => setEditingId(null);
 
   const saveEdit = (id) => {
     if (!editText.trim()) return;
-    onEdit(id, { text: editText.trim(), assignee: editAssignee, dueDate: editDueDate });
+    onEdit(id, { text: editText.trim(), assignee: editAssignee, dueDate: editDueDate, images: editImages });
     toast('Task updated');
     setEditingId(null);
   };
@@ -105,6 +115,16 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
               <Bell size={12} /> Alert on {dueDate} after {getNotifyTime()}
             </p>
           )}
+        </div>
+        <div className="mt-3">
+          <ImagePicker
+            images={images}
+            onAdd={(url) => setImages(prev => [...prev, url])}
+            onRemove={(url) => setImages(prev => prev.filter(u => u !== url))}
+            uploadingCount={uploadingCount}
+            setUploadingCount={setUploadingCount}
+            uploadFn={uploadImage}
+          />
         </div>
       </div>
 
@@ -164,53 +184,63 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
             return (
               <div
                 key={todo.id}
-                className="flex flex-col md:flex-row md:items-center gap-3 p-3 md:p-4 rounded-2xl border bg-white border-gray-200 shadow-sm"
+                className="flex flex-col gap-3 p-3 md:p-4 rounded-2xl border bg-white border-gray-200 shadow-sm"
                 onClick={(e) => e.stopPropagation()}
               >
-                <input
-                  type="text"
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveEdit(todo.id);
-                    if (e.key === 'Escape') cancelEdit();
-                  }}
-                  className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 focus:outline-none text-sm"
-                />
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <SelectMenu
-                    className="w-full sm:w-36"
-                    value={editAssignee}
-                    onChange={setEditAssignee}
-                    options={[
-                      { value: 'shared', label: 'Shared' },
-                      { value: 'u1', label: users[0].name },
-                      { value: 'u2', label: users[1].name },
-                    ]}
+                <div className="flex flex-col md:flex-row md:items-center gap-3">
+                  <input
+                    type="text"
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEdit(todo.id);
+                      if (e.key === 'Escape') cancelEdit();
+                    }}
+                    className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 focus:outline-none text-sm"
                   />
-                  <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-200 w-full sm:w-auto">
-                    <Calendar size={16} className="text-gray-400 shrink-0" />
-                    <input
-                      type="date"
-                      value={editDueDate}
-                      onChange={(e) => setEditDueDate(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveEdit(todo.id);
-                        if (e.key === 'Escape') cancelEdit();
-                      }}
-                      className="w-full bg-transparent text-sm focus:outline-none text-gray-600"
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <SelectMenu
+                      className="w-full sm:w-36"
+                      value={editAssignee}
+                      onChange={setEditAssignee}
+                      options={[
+                        { value: 'shared', label: 'Shared' },
+                        { value: 'u1', label: users[0].name },
+                        { value: 'u2', label: users[1].name },
+                      ]}
                     />
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-200 w-full sm:w-auto">
+                      <Calendar size={16} className="text-gray-400 shrink-0" />
+                      <input
+                        type="date"
+                        value={editDueDate}
+                        onChange={(e) => setEditDueDate(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveEdit(todo.id);
+                          if (e.key === 'Escape') cancelEdit();
+                        }}
+                        className="w-full bg-transparent text-sm focus:outline-none text-gray-600"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 justify-end shrink-0">
+                    <button onClick={() => saveEdit(todo.id)} className="text-gray-300 hover:text-green-500 transition-colors p-1" title="Save task">
+                      <Check size={18} />
+                    </button>
+                    <button onClick={cancelEdit} className="text-gray-300 hover:text-gray-500 transition-colors p-1" title="Cancel edit">
+                      <X size={18} />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 justify-end shrink-0">
-                  <button onClick={() => saveEdit(todo.id)} className="text-gray-300 hover:text-green-500 transition-colors p-1" title="Save task">
-                    <Check size={18} />
-                  </button>
-                  <button onClick={cancelEdit} className="text-gray-300 hover:text-gray-500 transition-colors p-1" title="Cancel edit">
-                    <X size={18} />
-                  </button>
-                </div>
+                <ImagePicker
+                  images={editImages}
+                  onAdd={(url) => setEditImages(prev => [...prev, url])}
+                  onRemove={(url) => setEditImages(prev => prev.filter(u => u !== url))}
+                  uploadingCount={editUploadingCount}
+                  setUploadingCount={setEditUploadingCount}
+                  uploadFn={uploadImage}
+                />
               </div>
             );
           }
@@ -225,6 +255,25 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
                 <div className="flex flex-col min-w-0">
                   <span className={`text-sm md:text-base font-medium break-words ${isDone ? 'line-through text-gray-400' : 'text-gray-800'}`}>{todo.text}</span>
                   {todo.dueDate && (<span className={`text-[10px] md:text-xs font-medium flex items-center gap-1 mt-1 md:mt-0.5 ${dateWarning ? 'text-amber-600' : 'text-gray-400'}`}><Calendar size={10} /> {todo.dueDate} {dateWarning && '(Due!)'}</span>)}
+                  {(todo.images || []).length > 0 && (() => {
+                    const imgs = todo.images;
+                    const shownImgs = imgs.slice(0, 3);
+                    const overflow = imgs.length - shownImgs.length;
+                    return (
+                      <div className="flex gap-1.5 mt-1.5" onClick={(e) => e.stopPropagation()}>
+                        {shownImgs.map(url => (
+                          <a key={url} href={url} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-lg overflow-hidden shrink-0 block border border-gray-200">
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                          </a>
+                        ))}
+                        {overflow > 0 && (
+                          <div className="w-10 h-10 rounded-lg bg-black/10 flex items-center justify-center text-xs font-bold text-gray-700 shrink-0">
+                            +{overflow}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="flex items-center gap-1 ml-3 shrink-0">
@@ -248,8 +297,22 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
                 <button
                   onClick={async (e) => {
                     e.stopPropagation();
-                    const ok = await confirmDialog({ title: 'Delete task?', message: `"${todo.text}" will be removed for both of you.` });
-                    if (ok) { onDelete(todo.id); toast('Task deleted'); }
+                    const hasImages = (todo.images || []).length > 0;
+                    const ok = await confirmDialog({
+                      title: 'Delete task?',
+                      message: hasImages
+                        ? `"${todo.text}" and its attached images will be removed for both of you.`
+                        : `"${todo.text}" will be removed for both of you.`,
+                    });
+                    if (ok) {
+                      onDelete(todo.id);
+                      toast('Task deleted');
+                      if (isCloudEnabled) {
+                        for (const url of todo.images || []) {
+                          db.deleteTodoImage(url);
+                        }
+                      }
+                    }
                   }}
                   className="text-gray-300 hover:text-red-500 transition-colors p-1"
                   title="Delete task"
