@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Sparkles, Pencil } from 'lucide-react';
 import { confirmDialog, toast } from '../ui';
 
 const EMOJI_CHOICES = ['✨', '✈️', '🍜', '🏖️', '🎬', '🏔️', '💍', '🎡', '🍰'];
@@ -9,11 +9,30 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function Us({ bucketList, onAdd, onToggleDone, onDelete, users }) {
+export default function Us({ bucketList, onAdd, onToggleDone, onEdit, onDelete, users }) {
   const [isComposing, setIsComposing] = useState(false);
   const [emoji, setEmoji] = useState('✨');
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editEmoji, setEditEmoji] = useState('✨');
+  const [editTitle, setEditTitle] = useState('');
+  const [editNote, setEditNote] = useState('');
+
+  const startEdit = (item) => {
+    setEditingId(item.id);
+    setEditEmoji(item.emoji || '✨');
+    setEditTitle(item.title);
+    setEditNote(item.note || '');
+  };
+
+  const saveEdit = (e) => {
+    e.preventDefault();
+    if (!editTitle.trim()) return;
+    onEdit(editingId, { emoji: editEmoji, title: editTitle.trim(), note: editNote.trim() });
+    toast('Dream updated 💫');
+    setEditingId(null);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -37,7 +56,46 @@ export default function Us({ bucketList, onAdd, onToggleDone, onDelete, users })
   const active = bucketList.filter(b => !b.done).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const done = bucketList.filter(b => b.done).sort((a, b) => new Date(b.doneAt || b.createdAt) - new Date(a.doneAt || a.createdAt));
 
-  const renderCard = (item) => (
+  const renderCard = (item) => item.id === editingId ? (
+    <div key={item.id} className="bg-white rounded-2xl border border-rose-200 shadow-sm p-4">
+      <form onSubmit={saveEdit} className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {EMOJI_CHOICES.map(e => (
+            <button
+              type="button"
+              key={e}
+              onClick={() => setEditEmoji(e)}
+              className={`text-xl w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${editEmoji === e ? 'bg-rose-100 ring-2 ring-rose-400' : 'bg-gray-50 hover:bg-gray-100'}`}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          autoFocus
+          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm"
+        />
+        <input
+          type="text"
+          value={editNote}
+          onChange={(e) => setEditNote(e.target.value)}
+          placeholder="Add a note (optional)"
+          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm"
+        />
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={() => setEditingId(null)} className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button type="submit" className="bg-rose-500 text-white rounded-xl px-5 py-2 font-medium hover:bg-rose-600 transition-colors active:scale-95 text-sm">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  ) : (
     <div key={item.id} className={`flex items-start gap-3 p-4 rounded-2xl border transition-all ${item.done ? 'bg-gray-50 border-gray-100' : 'bg-white border-gray-200 shadow-sm hover:border-gray-300'}`}>
       <button
         type="button"
@@ -58,6 +116,9 @@ export default function Us({ bucketList, onAdd, onToggleDone, onDelete, users })
           )}
         </div>
       </div>
+      <button onClick={() => startEdit(item)} className="text-gray-300 hover:text-gray-600 transition-colors p-1 shrink-0" title="Edit">
+        <Pencil size={16} />
+      </button>
       <button onClick={() => handleDelete(item)} className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0" title="Delete">
         <Trash2 size={16} />
       </button>

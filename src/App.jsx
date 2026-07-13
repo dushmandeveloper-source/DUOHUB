@@ -481,7 +481,7 @@ export default function App() {
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={myCategoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onSetStatus={setTodoStatus} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
       case 'notes': return <Notes notes={notes} onAdd={addNote} onEdit={editNote} onDelete={deleteNote} users={users} currentUser={currentUser} />;
-      case 'us': return <Us bucketList={bucketList} onAdd={addBucketItem} onToggleDone={toggleBucketDone} onDelete={deleteBucketItem} users={users} currentUser={currentUser} />;
+      case 'us': return <Us bucketList={bucketList} onAdd={addBucketItem} onToggleDone={toggleBucketDone} onEdit={updateBucketItem} onDelete={deleteBucketItem} users={users} currentUser={currentUser} />;
       case 'profile': return <Profile users={users} currentUser={currentUser} partner={partnerUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} onToggleShareLocation={toggleShareLocation} onRefreshLocation={refreshMyLocation} onUpdateAvatar={updateAvatar} />;
       default: return null;
     }
