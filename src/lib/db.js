@@ -20,19 +20,24 @@ const expenseToRow = (e) => ({
   date: e.date,
 });
 
-const rowToTodo = (r) => ({
-  id: r.id,
-  text: r.text,
-  assignee: r.assignee,
-  completed: r.completed,
-  dueDate: r.due_date || '',
-});
+const rowToTodo = (r) => {
+  const status = r.status || (r.completed ? 'done' : 'pending');
+  return {
+    id: r.id,
+    text: r.text,
+    assignee: r.assignee,
+    completed: status === 'done',
+    status,
+    dueDate: r.due_date || '',
+  };
+};
 
 const todoToRow = (t) => ({
   id: t.id,
   text: t.text,
   assignee: t.assignee,
   completed: t.completed,
+  status: t.status || (t.completed ? 'done' : 'pending'),
   due_date: t.dueDate || null,
 });
 
@@ -104,6 +109,9 @@ export const addTodo = (todo) =>
 
 export const setTodoCompleted = (id, completed) =>
   supabase.from('todos').update({ completed }).eq('id', id).then(unwrap);
+
+export const updateTodoStatus = (id, status) =>
+  supabase.from('todos').update({ status, completed: status === 'done' }).eq('id', id).then(unwrap);
 
 export const updateTodo = (id, updates) =>
   supabase.from('todos').update({

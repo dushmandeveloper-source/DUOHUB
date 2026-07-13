@@ -55,6 +55,7 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
 export default function Expenses({ expenses, users, categories, availableMonths, onAdd, onDelete, currentUser }) {
   const [filterMonth, setFilterMonth] = useState('all');
   const [payerFilter, setPayerFilter] = useState(currentUser.id);
+  const [dateFilter, setDateFilter] = useState(null);
 
   // Default to the selected person's own expenses; follows the top toggle
   useEffect(() => {
@@ -73,7 +74,10 @@ export default function Expenses({ expenses, users, categories, availableMonths,
     return groups;
   }, [expenses, payerFilter]);
 
-  const visibleGroups = Object.entries(groupedExpenses).filter(([monthYear]) => filterMonth === 'all' || filterMonth === monthYear);
+  const visibleGroups = Object.entries(groupedExpenses)
+    .filter(([monthYear]) => filterMonth === 'all' || filterMonth === monthYear)
+    .map(([monthYear, monthExpenses]) => [monthYear, dateFilter ? monthExpenses.filter(e => e.date === dateFilter) : monthExpenses])
+    .filter(([, monthExpenses]) => monthExpenses.length > 0);
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -95,6 +99,19 @@ export default function Expenses({ expenses, users, categories, availableMonths,
               options={[{ value: 'all', label: 'All Time' }, ...availableMonths.map(m => ({ value: m, label: m }))]}
             />
           </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4 px-2">
+          <span className="text-xs font-bold text-gray-400 shrink-0">Quick filter:</span>
+          <QuickDates
+            value={dateFilter}
+            onChange={(d) => setDateFilter(prev => prev === d ? null : d)}
+            options={[
+              { label: 'Today', date: todayISO() },
+              { label: 'Yesterday', date: addDaysISO(-1) },
+              { label: '2 Days Ago', date: addDaysISO(-2) },
+            ]}
+          />
         </div>
 
         <div className="space-y-6 md:space-y-8">

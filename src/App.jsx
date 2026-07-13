@@ -35,7 +35,7 @@ export default function App() {
   const [incomes, setIncomes] = useState([]);
   const [monthlyPlans, setMonthlyPlans] = useState({ u1: INITIAL_PLAN, u2: INITIAL_PLAN });
   const [categoryBudgets, setCategoryBudgets] = useState({ u1: {}, u2: {} });
-  const [notification, setNotification] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
   const [updateReady, setUpdateReady] = useState(false);
 
@@ -122,24 +122,26 @@ export default function App() {
     const check = () => {
       const now = new Date();
       const today = now.toISOString().split('T')[0];
-      // Only this device's person: their own tasks + shared ones
+      // Only this device's person: their own tasks + shared ones.
+      // Tasks parked as "waiting" are intentionally excluded — that status
+      // is the user's way of saying "don't nag me about this."
       const dueTasks = todos.filter(t =>
-        !t.completed && t.dueDate && t.dueDate <= today &&
+        !t.completed && t.status !== 'waiting' && t.dueDate && t.dueDate <= today &&
         (t.assignee === currentUser.id || t.assignee === 'shared')
       );
 
       if (dueTasks.length === 0) {
-        setNotification(null);
+        setNotifications([]);
         return;
       }
 
-      const taskNames = dueTasks.map(t => t.text).join(', ');
-      setNotification({
-        title: 'Tasks Need Attention',
-        message: `Due/Overdue: ${taskNames}`,
-        type: 'warning'
-      });
+      setNotifications(dueTasks.map(t => ({
+        id: t.id,
+        title: 'Task Needs Attention',
+        message: `Due/Overdue: ${t.text}`,
+      })));
 
+      const taskNames = dueTasks.map(t => t.text).join(', ');
       const pad = (n) => String(n).padStart(2, '0');
       const nowTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
       const stampKey = 'duohub:lastDueNotifyDate';
@@ -182,17 +184,16 @@ export default function App() {
     if (isCloudEnabled) db.deleteExpense(id).catch(logSyncError);
   };
 
-  const toggleTodo = (id) => {
+  const setTodoStatus = (id, status) => {
     const target = todos.find(t => t.id === id);
     if (!target) return;
-    const completed = !target.completed;
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed } : t));
-    if (isCloudEnabled) db.setTodoCompleted(id, completed).catch(logSyncError);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, status, completed: status === 'done' } : t));
+    if (isCloudEnabled) db.updateTodoStatus(id, status).catch(logSyncError);
   };
 
   const addTodo = (text, assignee, dueDate) => {
     if (!text.trim()) return;
-    const todo = { id: Date.now(), text, assignee, completed: false, dueDate };
+    const todo = { id: Date.now(), text, assignee, completed: false, status: 'pending', dueDate };
     setTodos(prev => [todo, ...prev]);
     if (isCloudEnabled) db.addTodo(todo).catch(logSyncError);
   };
@@ -269,10 +270,10 @@ export default function App() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onToggleTodo={toggleTodo} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
+      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onSetTodoStatus={setTodoStatus} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={myCategoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
-      case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
+      case 'todos': return <Todos todos={todos} onSetStatus={setTodoStatus} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
       case 'profile': return <Profile users={users} currentUser={currentUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
       default: return null;
     }
@@ -289,7 +290,18 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row font-sans text-gray-800 relative overflow-x-hidden">
 
       <UIHost />
-      <Notification notification={notification} onClose={() => setNotification(null)} />
+      {notifications.length > 0 && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col items-center gap-3 w-[90%] max-w-sm">
+          {notifications.map(n => (
+            <Notification
+              key={n.id}
+              notification={n}
+              stacked
+              onClose={() => setNotifications(prev => prev.filter(x => x.id !== n.id))}
+            />
+          ))}
+        </div>
+      )}
 
       {updateReady && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-indigo-600 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4 w-[92%] max-w-md">

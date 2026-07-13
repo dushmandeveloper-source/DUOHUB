@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote } from 'lucide-react';
+import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote, Clock } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
@@ -7,7 +7,7 @@ import { toast } from '../ui';
 import CategoryPicker from './CategoryPicker';
 import SelectMenu from './SelectMenu';
 
-export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onToggleTodo, categoryBudgets, incomes }) {
+export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onSetTodoStatus, categoryBudgets, incomes }) {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [editName, setEditName] = useState(savingsGoal.name);
   const [editTarget, setEditTarget] = useState(savingsGoal.target);
@@ -68,7 +68,12 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
   ].filter(d => d.value > 0);
 
   const pendingTodos = todos
-    .filter(t => !t.completed)
+    .filter(t => (t.status || (t.completed ? 'done' : 'pending')) === 'pending')
+    .sort((a, b) => new Date(a.dueDate || '9999-12-31') - new Date(b.dueDate || '9999-12-31'))
+    .slice(0, 4);
+
+  const waitingTodos = todos
+    .filter(t => (t.status || (t.completed ? 'done' : 'pending')) === 'waiting')
     .sort((a, b) => new Date(a.dueDate || '9999-12-31') - new Date(b.dueDate || '9999-12-31'))
     .slice(0, 4);
 
@@ -113,7 +118,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
             const todayStr = new Date().toISOString().split('T')[0];
             const isDue = todo.dueDate && todo.dueDate <= todayStr;
             return (
-              <div key={todo.id} className="flex items-start md:items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 cursor-pointer hover:border-gray-300 transition-all" onClick={() => onToggleTodo(todo.id)}>
+              <div key={todo.id} className="flex items-start md:items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 cursor-pointer hover:border-gray-300 transition-all" onClick={() => onSetTodoStatus(todo.id, 'waiting')}>
                 <div className="w-5 h-5 rounded border-2 border-gray-300 shrink-0 mt-0.5 md:mt-0"></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 break-words">{todo.text}</p>
@@ -133,6 +138,33 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, onAddSav
           )}
         </div>
       </div>
+
+      {/* WAITING */}
+      {waitingTodos.length > 0 && (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6 flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold">Waiting</h3>
+          </div>
+
+          <div className="space-y-3 flex-1">
+            {waitingTodos.map(todo => (
+              <div key={todo.id} className="flex items-start md:items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 cursor-pointer hover:border-gray-300 transition-all" onClick={() => onSetTodoStatus(todo.id, 'done')}>
+                <div className="w-5 h-5 rounded border-2 border-amber-400 bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 mt-0.5 md:mt-0">
+                  <Clock size={12} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 break-words">{todo.text}</p>
+                  {todo.dueDate && (
+                    <p className="text-xs font-medium flex items-center gap-1 mt-1 md:mt-0.5 text-gray-400">
+                      <Calendar size={10} /> {todo.dueDate}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* OVERVIEW CHARTS & STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

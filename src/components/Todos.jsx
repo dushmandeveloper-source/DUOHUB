@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, CheckSquare, Trash2, Bell, Pencil, X, Check } from 'lucide-react';
+import { Plus, Calendar, CheckSquare, Trash2, Bell, Pencil, X, Check, Clock } from 'lucide-react';
 import { monthLabel } from '../data';
 import { getNotifyTime } from '../notifications';
 import { confirmDialog, toast } from '../ui';
@@ -7,13 +7,17 @@ import SelectMenu from './SelectMenu';
 import QuickDates from './QuickDates';
 import { todayISO, addDaysISO } from '../lib/dates';
 
-export default function Todos({ todos, onToggle, onAdd, onDelete, onEdit, users, currentUser, availableMonths }) {
+const NEXT_STATUS = { pending: 'waiting', waiting: 'done', done: 'pending' };
+
+export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, users, currentUser, availableMonths }) {
   const todayStr = todayISO();
   const [task, setTask] = useState('');
   const [assignTo, setAssignTo] = useState('shared');
   const [dueDate, setDueDate] = useState(todayStr); // defaults to today
   const [userFilter, setUserFilter] = useState(currentUser.id);
   const [monthFilter, setMonthFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
   const [editAssignee, setEditAssignee] = useState('shared');
@@ -56,6 +60,8 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, onEdit, users,
       if (!t.dueDate) return false;
       if (monthLabel(t.dueDate) !== monthFilter) return false;
     }
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+    if (dateFilter && t.dueDate !== dateFilter) return false;
     return true;
   });
   return (
@@ -69,12 +75,37 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, onEdit, users,
             onChange={setMonthFilter}
             options={[{ value: 'all', label: 'All Dates' }, ...availableMonths.map(m => ({ value: m, label: m }))]}
           />
+          <SelectMenu
+            className="w-full sm:w-36"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'All Statuses' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'waiting', label: 'Waiting' },
+              { value: 'done', label: 'Done' },
+            ]}
+          />
           <div className="flex bg-gray-200 rounded-xl md:rounded-full p-1 w-full sm:w-auto">
             <button onClick={() => setUserFilter('all')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium ${userFilter === 'all' ? 'bg-white shadow' : 'text-gray-500'}`}>All</button>
             <button onClick={() => setUserFilter('u1')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium truncate ${userFilter === 'u1' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>{users[0].name}</button>
             <button onClick={() => setUserFilter('u2')} className={`flex-1 text-xs px-3 py-2 md:py-1 rounded-lg md:rounded-full font-medium truncate ${userFilter === 'u2' ? 'bg-white shadow text-rose-600' : 'text-gray-500'}`}>{users[1].name}</button>
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-2">
+        <span className="text-xs font-bold text-gray-400 shrink-0">Quick filter:</span>
+        <QuickDates
+          value={dateFilter}
+          onChange={(d) => setDateFilter(prev => prev === d ? null : d)}
+          options={[
+            { label: 'Today', date: todayStr },
+            { label: 'Tomorrow', date: addDaysISO(1) },
+            { label: 'In 3 Days', date: addDaysISO(3) },
+            { label: 'Next Week', date: addDaysISO(7) },
+          ]}
+        />
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col md:flex-row bg-white p-3 md:p-2 rounded-2xl md:rounded-full shadow-sm border border-gray-100 gap-3 md:gap-2">
@@ -119,8 +150,9 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, onEdit, users,
         {filteredTodos.map(todo => {
           const assigneeName = todo.assignee === 'shared' ? 'Shared' : users.find(u => u.id === todo.assignee)?.name;
           const assigneeColor = todo.assignee === 'u1' ? 'text-blue-500 bg-blue-50' : todo.assignee === 'u2' ? 'text-rose-500 bg-rose-50' : 'text-gray-500 bg-gray-100';
+          const status = todo.status || (todo.completed ? 'done' : 'pending');
           let dateWarning = false;
-          if (todo.dueDate && !todo.completed) { dateWarning = todo.dueDate <= todayStr; }
+          if (todo.dueDate && status === 'pending') { dateWarning = todo.dueDate <= todayStr; }
           if (editingId === todo.id) {
             return (
               <div
@@ -175,12 +207,21 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, onEdit, users,
               </div>
             );
           }
+          const statusBoxClass = status === 'done'
+            ? 'bg-green-500 border-green-500 text-white'
+            : status === 'waiting'
+            ? 'bg-amber-100 border-amber-400 text-amber-600'
+            : 'border-gray-300';
+          const statusTitle = status === 'done' ? 'Done — click to reset to pending' : status === 'waiting' ? 'Waiting — click to mark done' : 'Pending — click to mark waiting';
           return (
-            <div key={todo.id} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border transition-all ${todo.completed ? 'bg-gray-50 border-gray-100 opacity-60' : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'}`}>
-              <div className="flex items-start md:items-center gap-3 md:gap-4 cursor-pointer flex-1 min-w-0" onClick={() => onToggle(todo.id)}>
-                <div className={`w-5 h-5 md:w-6 md:h-6 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 mt-0.5 md:mt-0 ${todo.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'}`}>{todo.completed && <CheckSquare size={14} />}</div>
+            <div key={todo.id} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border transition-all ${status === 'done' ? 'bg-gray-50 border-gray-100 opacity-60' : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'}`}>
+              <div className="flex items-start md:items-center gap-3 md:gap-4 cursor-pointer flex-1 min-w-0" onClick={() => onSetStatus(todo.id, NEXT_STATUS[status])}>
+                <div title={statusTitle} className={`w-5 h-5 md:w-6 md:h-6 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 mt-0.5 md:mt-0 ${statusBoxClass}`}>
+                  {status === 'done' && <CheckSquare size={14} />}
+                  {status === 'waiting' && <Clock size={14} />}
+                </div>
                 <div className="flex flex-col min-w-0">
-                  <span className={`text-sm md:text-base font-medium break-words ${todo.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>{todo.text}</span>
+                  <span className={`text-sm md:text-base font-medium break-words ${status === 'done' ? 'line-through text-gray-400' : 'text-gray-800'}`}>{todo.text}</span>
                   {todo.dueDate && (<span className={`text-[10px] md:text-xs font-medium flex items-center gap-1 mt-1 md:mt-0.5 ${dateWarning ? 'text-amber-600' : 'text-gray-400'}`}><Calendar size={10} /> {todo.dueDate} {dateWarning && '(Due!)'}</span>)}
                 </div>
               </div>
