@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon, MapPin, Heart, Mail } from 'lucide-react';
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -51,6 +51,7 @@ export default function App() {
   const [showLocationMap, setShowLocationMap] = useState(false);
   const [liveTracking, setLiveTracking] = useState(false);
   const [showThinkingOfYou, setShowThinkingOfYou] = useState(false);
+  const dismissedDueRef = useRef(new Set());
 
   useEffect(() => onUpdateAvailable(() => setUpdateReady(true)), []);
 
@@ -81,8 +82,10 @@ export default function App() {
   }, [currentUserId]);
 
   // --- Cloud sync: initial load + realtime updates from the other device ---
-  const loadFromCloud = useCallback(async () => {
-    setCloudStatus('connecting');
+  // silent = realtime refresh in the background — don't flash the
+  // "connecting" indicator for those, only for the initial load.
+  const loadFromCloud = useCallback(async (silent = false) => {
+    if (!silent) setCloudStatus('connecting');
     try {
       const data = await db.fetchAll();
       setUsers(prev => prev.map(u => ({ ...u, ...(data.profiles[u.id] || {}) })));
@@ -105,7 +108,7 @@ export default function App() {
   useEffect(() => {
     if (!isCloudEnabled) return;
     loadFromCloud();
-    const channel = db.subscribeToChanges(() => loadFromCloud());
+    const channel = db.subscribeToChanges(() => loadFromCloud(true));
     return () => db.unsubscribe(channel);
   }, [loadFromCloud]);
 
@@ -158,11 +161,15 @@ export default function App() {
         return;
       }
 
-      setNotifications(dueTasks.map(t => ({
-        id: t.id,
-        title: 'Task Needs Attention',
-        message: `Due/Overdue: ${t.text}`,
-      })));
+      // Banners the user already swiped away stay away, even when a
+      // background sync re-runs this check with a fresh todos array.
+      setNotifications(dueTasks
+        .filter(t => !dismissedDueRef.current.has(t.id))
+        .map(t => ({
+          id: t.id,
+          title: 'Task Needs Attention',
+          message: `Due/Overdue: ${t.text}`,
+        })));
 
       const taskNames = dueTasks.map(t => t.text).join(', ');
       const pad = (n) => String(n).padStart(2, '0');
@@ -507,7 +514,10 @@ export default function App() {
               key={n.id}
               notification={n}
               stacked
-              onClose={() => setNotifications(prev => prev.filter(x => x.id !== n.id))}
+              onClose={() => {
+                dismissedDueRef.current.add(n.id);
+                setNotifications(prev => prev.filter(x => x.id !== n.id));
+              }}
             />
           ))}
         </div>
