@@ -99,6 +99,11 @@ export async function fetchAll() {
       currency: r.currency || 'USD',
       timezone: r.timezone || (r.id === 'u2' ? 'Asia/Shanghai' : 'Asia/Colombo'),
       hiddenCards: Array.isArray(r.hidden_cards) ? r.hidden_cards : [],
+      shareLocation: !!r.share_location,
+      lat: r.lat != null ? Number(r.lat) : null,
+      lng: r.lng != null ? Number(r.lng) : null,
+      locationAccuracy: r.location_accuracy != null ? Number(r.location_accuracy) : null,
+      locationUpdatedAt: r.location_updated_at || null,
     }])),
     expenses: expenses.map(rowToExpense),
     todos: todos.map(rowToTodo),
@@ -180,6 +185,19 @@ export const updateProfiles = (u1, u2) =>
 
 export const updateHiddenCards = (userId, hiddenCards) =>
   supabase.from('profiles').update({ hidden_cards: hiddenCards }).eq('id', userId).then(unwrap);
+
+export const updateLocation = (userId, { lat, lng, accuracy }) =>
+  supabase.from('profiles').update({
+    lat, lng, location_accuracy: accuracy, location_updated_at: new Date().toISOString(),
+  }).eq('id', userId).then(unwrap);
+
+// Disabling clears the last known point too — no location should linger once sharing is off.
+export const updateShareLocation = (userId, enabled) =>
+  supabase.from('profiles').update(
+    enabled
+      ? { share_location: true }
+      : { share_location: false, lat: null, lng: null, location_accuracy: null, location_updated_at: null }
+  ).eq('id', userId).then(unwrap);
 
 export const addNote = (note) =>
   supabase.from('notes').insert(noteToRow(note)).then(unwrap);

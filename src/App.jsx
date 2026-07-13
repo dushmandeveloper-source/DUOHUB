@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon, MapPin } from 'lucide-react';
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { showSystemNotification, getNotifyTime, enableBackgroundCheck } from './notifications';
 import { isCloudEnabled } from './lib/supabase';
 import { onUpdateAvailable, applyUpdate } from './updater';
+import { getCurrentPosition } from './lib/geo';
+import { toast } from './ui';
 import * as db from './lib/db';
 import { NavItem, MobileNavItem } from './components/Nav';
 import Notification from './components/Notification';
@@ -15,6 +17,7 @@ import Analytics from './components/Analytics';
 import Todos from './components/Todos';
 import Notes from './components/Notes';
 import Profile from './components/Profile';
+import LocationMap from './components/LocationMap';
 
 const logSyncError = (err) => console.error('Cloud sync failed:', err);
 
@@ -40,10 +43,13 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
   const [updateReady, setUpdateReady] = useState(false);
+  const [showLocationMap, setShowLocationMap] = useState(false);
+  const autoLocationRan = useRef(false);
 
   useEffect(() => onUpdateAvailable(() => setUpdateReady(true)), []);
 
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
+  const partnerUser = users.find(u => u.id !== currentUser.id) || users[1];
   const currentGoal = savingsGoals[currentUser.id] || INITIAL_GOAL;
 
   // Per-person views: each person sees their own expenses, plans, and tasks
@@ -296,6 +302,70 @@ export default function App() {
     if (isCloudEnabled) db.updateHiddenCards(currentUser.id, next).catch(logSyncError);
   };
 
+  const refreshMyLocation = useCallback(async () => {
+    if (!isCloudEnabled) return false;
+    try {
+      const pos = await getCurrentPosition();
+      const now = new Date().toISOString();
+      setUsers(prev => prev.map(u => u.id === currentUserId
+        ? { ...u, lat: pos.lat, lng: pos.lng, locationAccuracy: pos.accuracy, locationUpdatedAt: now }
+        : u));
+      await db.updateLocation(currentUserId, pos);
+      return true;
+    } catch (err) {
+      toast(err.message || 'Could not update your location.', 'error');
+      return false;
+    }
+  }, [currentUserId]);
+
+  const toggleShareLocation = async (enabled) => {
+    if (!isCloudEnabled) return;
+    if (enabled) {
+      try {
+        const pos = await getCurrentPosition();
+        const now = new Date().toISOString();
+        setUsers(prev => prev.map(u => u.id === currentUserId
+          ? { ...u, shareLocation: true, lat: pos.lat, lng: pos.lng, locationAccuracy: pos.accuracy, locationUpdatedAt: now }
+          : u));
+        await db.updateShareLocation(currentUserId, true);
+        await db.updateLocation(currentUserId, pos);
+        toast('Location shared 💖');
+      } catch (err) {
+        toast(err.message || 'Could not share your location.', 'error');
+      }
+    } else {
+      setUsers(prev => prev.map(u => u.id === currentUserId
+        ? { ...u, shareLocation: false, lat: null, lng: null, locationAccuracy: null, locationUpdatedAt: null }
+        : u));
+      db.updateShareLocation(currentUserId, false).catch(logSyncError);
+      toast('Location sharing turned off');
+    }
+  };
+
+  // Silent auto-refresh once per app load: only if sharing is on, permission
+  // is already granted (never prompt), and the last fix isn't fresh already.
+  useEffect(() => {
+    if (autoLocationRan.current) return;
+    if (cloudStatus !== 'online' || !currentUser.shareLocation) return;
+    autoLocationRan.current = true;
+
+    const lastUpdate = currentUser.locationUpdatedAt;
+    const isFresh = lastUpdate && (Date.now() - new Date(lastUpdate).getTime()) < 10 * 60 * 1000;
+    if (isFresh) return;
+
+    (async () => {
+      try {
+        if (navigator.permissions?.query) {
+          const status = await navigator.permissions.query({ name: 'geolocation' });
+          if (status.state !== 'granted') return;
+        }
+      } catch {
+        // Permissions API unavailable — proceed, since enabling share_location already required a grant.
+      }
+      refreshMyLocation();
+    })();
+  }, [cloudStatus, currentUser.shareLocation, currentUser.locationUpdatedAt, refreshMyLocation]);
+
   const renderTab = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} users={users} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onSetTodoStatus={setTodoStatus} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} hiddenCards={currentUser.hiddenCards || []} onToggleCard={toggleDashboardCard} />;
@@ -303,7 +373,7 @@ export default function App() {
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={myCategoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onSetStatus={setTodoStatus} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
       case 'notes': return <Notes notes={notes} onAdd={addNote} onEdit={editNote} onDelete={deleteNote} users={users} currentUser={currentUser} />;
-      case 'profile': return <Profile users={users} currentUser={currentUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
+      case 'profile': return <Profile users={users} currentUser={currentUser} partner={partnerUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} onToggleShareLocation={toggleShareLocation} onRefreshLocation={refreshMyLocation} />;
       default: return null;
     }
   };
@@ -319,6 +389,14 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row font-sans text-gray-800 relative overflow-x-hidden">
 
       <UIHost />
+      {showLocationMap && (
+        <LocationMap
+          users={users}
+          currentUser={currentUser}
+          onClose={() => setShowLocationMap(false)}
+          onRefresh={refreshMyLocation}
+        />
+      )}
       {notifications.length > 0 && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col items-center gap-3 w-[90%] max-w-sm">
           {notifications.map(n => (
@@ -358,6 +436,14 @@ export default function App() {
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button
+            onClick={() => setShowLocationMap(true)}
+            className="relative p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            title={`Where is ${partnerUser.name}?`}
+          >
+            <MapPin size={18} />
+            <span className="absolute -top-0.5 -right-0.5 text-[10px] leading-none">💕</span>
           </button>
         </div>
 

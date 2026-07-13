@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download, Banknote, Plus } from 'lucide-react';
+import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download, Banknote, Plus, MapPin } from 'lucide-react';
 import { notificationSupport, requestNotificationPermission, showSystemNotification, getNotifyTime, setNotifyTime, enableBackgroundCheck } from '../notifications';
 import { canInstall, isInstalled, promptInstall, onInstallChange, getInstallSteps } from '../install';
 import { checkForUpdates, hasPendingUpdate, BUILD_VERSION } from '../updater';
 import { confirmDialog, toast } from '../ui';
+import { isCloudEnabled } from '../lib/supabase';
+import { timeAgo } from '../lib/geo';
 import SelectMenu from './SelectMenu';
 import QuickDates from './QuickDates';
 import { todayISO, addDaysISO } from '../lib/dates';
@@ -284,7 +286,86 @@ function NotificationSettings() {
   );
 }
 
-export default function Profile({ users, currentUser, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset, incomes, onAddIncome, onDeleteIncome }) {
+function LocationSharing({ currentUser, partner, onToggleShareLocation, onRefreshLocation }) {
+  const [busy, setBusy] = useState(false);
+  const supported = !!navigator.geolocation && isCloudEnabled;
+
+  const handleToggle = async () => {
+    setBusy(true);
+    try {
+      await onToggleShareLocation(!currentUser.shareLocation);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUpdateNow = async () => {
+    setBusy(true);
+    try {
+      const ok = await onRefreshLocation();
+      if (ok) toast('Location updated 📍');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-8">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 md:w-12 md:h-12 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center shrink-0">
+          <MapPin size={20} className="md:w-6 md:h-6" />
+        </div>
+        <div>
+          <h2 className="text-lg md:text-xl font-bold">Location Sharing 💕</h2>
+          <p className="text-gray-500 text-xs md:text-sm">Share your GPS location so {partner.name} can see where you are.</p>
+        </div>
+      </div>
+
+      {!supported ? (
+        <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-xl p-4">
+          {isCloudEnabled ? 'Location sharing is not supported in this browser.' : 'Location sharing needs the database to be connected.'}
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleToggle}
+              disabled={busy}
+              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 active:scale-95 disabled:opacity-50 ${currentUser.shareLocation ? 'bg-rose-500' : 'bg-gray-200'}`}
+              title={currentUser.shareLocation ? 'Turn off location sharing' : 'Turn on location sharing'}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${currentUser.shareLocation ? 'translate-x-5' : ''}`} />
+            </button>
+            <span className="text-sm font-medium text-gray-700">Share my location with {partner.name}</span>
+          </div>
+
+          {currentUser.shareLocation && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs text-gray-400 sm:flex-1">
+                Last updated {timeAgo(currentUser.locationUpdatedAt)}
+                {currentUser.locationAccuracy != null && ` · ±${Math.round(currentUser.locationAccuracy)} m`}
+              </p>
+              <button
+                onClick={handleUpdateNow}
+                disabled={busy}
+                className="w-full sm:w-auto bg-rose-50 text-rose-600 border border-rose-200 font-bold py-2.5 px-5 rounded-xl hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-colors text-sm disabled:opacity-50"
+              >
+                Update now 📍
+              </button>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-400 mt-4">
+            {partner.name} is {partner.shareLocation ? 'sharing ✓' : 'not sharing yet'}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function Profile({ users, currentUser, partner, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset, incomes, onAddIncome, onDeleteIncome, onToggleShareLocation, onRefreshLocation }) {
   const [u1Name, setU1Name] = useState(users[0].name);
   const [u2Name, setU2Name] = useState(users[1].name);
   const [u1Currency, setU1Currency] = useState(users[0].currency || 'USD');
@@ -328,6 +409,8 @@ export default function Profile({ users, currentUser, onUpdateProfile, monthlyPl
       <InstallApp />
 
       <NotificationSettings />
+
+      <LocationSharing currentUser={currentUser} partner={partner} onToggleShareLocation={onToggleShareLocation} onRefreshLocation={onRefreshLocation} />
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-8">
         <div className="flex items-center gap-3 mb-6">
