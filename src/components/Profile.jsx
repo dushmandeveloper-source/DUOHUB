@@ -1,15 +1,63 @@
 import { useState, useEffect } from 'react';
-import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download, Banknote, Plus, MapPin } from 'lucide-react';
+import { useRef } from 'react';
+import { TrendingDown, User, Bell, Trash2, Smartphone, CheckCircle2, Download, Banknote, Plus, MapPin, Camera, Loader2 } from 'lucide-react';
 import { notificationSupport, requestNotificationPermission, showSystemNotification, getNotifyTime, setNotifyTime, enableBackgroundCheck } from '../notifications';
 import { canInstall, isInstalled, promptInstall, onInstallChange, getInstallSteps } from '../install';
 import { checkForUpdates, hasPendingUpdate, BUILD_VERSION } from '../updater';
 import { confirmDialog, toast } from '../ui';
 import { isCloudEnabled } from '../lib/supabase';
 import { timeAgo } from '../lib/geo';
+import { compressImage } from '../lib/imageCompression';
 import SelectMenu from './SelectMenu';
 import QuickDates from './QuickDates';
 import { todayISO, addDaysISO } from '../lib/dates';
 import { CURRENCIES, TIMEZONES, formatMoney } from '../lib/currency';
+
+// Circular avatar with camera-badge upload, shown per-person in Couple
+// Profiles. Only the signed-in person can change their own picture.
+function AvatarPicker({ user, name, colorClass, isEditable, onUpdateAvatar }) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      const compressed = await compressImage(file);
+      await onUpdateAvatar(user.id, compressed);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="relative shrink-0">
+      {user.avatarUrl ? (
+        <img src={user.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover" />
+      ) : (
+        <div className={`w-16 h-16 rounded-full ${colorClass} text-white flex items-center justify-center font-bold text-xl`}>
+          {name.charAt(0) || '?'}
+        </div>
+      )}
+      {isEditable && (
+        <>
+          <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gray-800/70 text-white flex items-center justify-center hover:bg-gray-800 transition-colors disabled:opacity-50"
+            title="Change your photo"
+          >
+            {uploading ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 function ExtraIncome({ incomes, onAdd, onDelete, currentUser }) {
   const today = todayISO();
@@ -365,7 +413,7 @@ function LocationSharing({ currentUser, partner, onToggleShareLocation, onRefres
   );
 }
 
-export default function Profile({ users, currentUser, partner, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset, incomes, onAddIncome, onDeleteIncome, onToggleShareLocation, onRefreshLocation }) {
+export default function Profile({ users, currentUser, partner, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset, incomes, onAddIncome, onDeleteIncome, onToggleShareLocation, onRefreshLocation, onUpdateAvatar }) {
   const [u1Name, setU1Name] = useState(users[0].name);
   const [u2Name, setU2Name] = useState(users[1].name);
   const [u1Currency, setU1Currency] = useState(users[0].currency || 'USD');
@@ -468,7 +516,7 @@ export default function Profile({ users, currentUser, partner, onUpdateProfile, 
             <div className="space-y-2">
               <label className="font-semibold text-gray-700 block text-sm md:text-base">Person 1 Name</label>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold shrink-0">{u1Name.charAt(0) || '1'}</div>
+                <AvatarPicker user={users[0]} name={u1Name} colorClass="bg-blue-500" isEditable={currentUser.id === users[0].id} onUpdateAvatar={onUpdateAvatar} />
                 <input type="text" value={u1Name} onChange={(e) => setU1Name(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
               <label className="font-semibold text-gray-700 block text-sm md:text-base pt-2">Person 1 Currency</label>
@@ -487,7 +535,7 @@ export default function Profile({ users, currentUser, partner, onUpdateProfile, 
             <div className="space-y-2">
               <label className="font-semibold text-gray-700 block text-sm md:text-base">Person 2 Name</label>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold shrink-0">{u2Name.charAt(0) || '2'}</div>
+                <AvatarPicker user={users[1]} name={u2Name} colorClass="bg-rose-500" isEditable={currentUser.id === users[1].id} onUpdateAvatar={onUpdateAvatar} />
                 <input type="text" value={u2Name} onChange={(e) => setU2Name(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm" />
               </div>
               <label className="font-semibold text-gray-700 block text-sm md:text-base pt-2">Person 2 Currency</label>

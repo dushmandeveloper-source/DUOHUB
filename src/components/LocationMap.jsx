@@ -7,11 +7,23 @@ import { haversineKm, timeAgo } from '../lib/geo';
 const EMOJI = { u1: '💙', u2: '💖' };
 
 function makeIcon(user) {
-  const html = `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+  const bubble = user.avatarUrl
+    ? `
+      <div style="position:relative;width:40px;height:40px;">
+        <img src="${user.avatarUrl}" style="width:40px;height:40px;border-radius:9999px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.25);" />
+        <div style="position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:9999px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;">
+          ${EMOJI[user.id] || '📍'}
+        </div>
+      </div>
+    `
+    : `
       <div style="width:40px;height:40px;border-radius:9999px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:22px;line-height:1;">
         ${EMOJI[user.id] || '📍'}
       </div>
+    `;
+  const html = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      ${bubble}
       <span style="background:#fff;border-radius:9999px;padding:1px 8px;font-size:10px;font-weight:700;color:#374151;box-shadow:0 1px 4px rgba(0,0,0,0.2);white-space:nowrap;">
         ${user.name}
       </span>
@@ -87,7 +99,7 @@ export default function LocationMap({ users, currentUser, live, onClose, onRefre
       map.setView([20, 90], 3);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users.map(u => `${u.id}:${u.lat}:${u.lng}:${u.shareLocation}:${u.locationUpdatedAt}`).join('|')]);
+  }, [users.map(u => `${u.id}:${u.lat}:${u.lng}:${u.shareLocation}:${u.locationUpdatedAt}:${u.avatarUrl}`).join('|')]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

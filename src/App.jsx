@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon, MapPin } from 'lucide-react';
+import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon, MapPin, Heart, Mail } from 'lucide-react';
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { usePresence } from './hooks/usePresence';
 import { showSystemNotification, getNotifyTime, enableBackgroundCheck } from './notifications';
 import { isCloudEnabled } from './lib/supabase';
 import { onUpdateAvailable, applyUpdate } from './updater';
@@ -16,8 +17,10 @@ import Expenses from './components/Expenses';
 import Analytics from './components/Analytics';
 import Todos from './components/Todos';
 import Notes from './components/Notes';
+import Us from './components/Us';
 import Profile from './components/Profile';
 import LocationMap from './components/LocationMap';
+import ThinkingOfYouModal from './components/ThinkingOfYouModal';
 
 const logSyncError = (err) => console.error('Cloud sync failed:', err);
 
@@ -40,17 +43,26 @@ export default function App() {
   const [monthlyPlans, setMonthlyPlans] = useState({ u1: INITIAL_PLAN, u2: INITIAL_PLAN });
   const [categoryBudgets, setCategoryBudgets] = useState({ u1: {}, u2: {} });
   const [notes, setNotes] = useState([]);
+  const [pings, setPings] = useState([]);
+  const [bucketList, setBucketList] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
   const [updateReady, setUpdateReady] = useState(false);
   const [showLocationMap, setShowLocationMap] = useState(false);
   const [liveTracking, setLiveTracking] = useState(false);
+  const [showThinkingOfYou, setShowThinkingOfYou] = useState(false);
 
   useEffect(() => onUpdateAvailable(() => setUpdateReady(true)), []);
 
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
   const partnerUser = users.find(u => u.id !== currentUser.id) || users[1];
   const currentGoal = savingsGoals[currentUser.id] || INITIAL_GOAL;
+
+  const partnerOnline = usePresence(
+    currentUserId,
+    partnerUser.id,
+    useCallback(() => toast(`${partnerUser.name} just opened DuoHub 💚`), [partnerUser.name])
+  );
 
   // Per-person views: each person sees their own expenses, plans, and tasks
   // (tasks assigned to them or marked shared).
@@ -81,6 +93,8 @@ export default function App() {
       setCategoryBudgets(data.categoryBudgets);
       setIncomes(data.incomes);
       setNotes(data.notes);
+      setPings(data.pings);
+      setBucketList(data.bucketList);
       setCloudStatus('online');
     } catch (err) {
       logSyncError(err);
@@ -287,6 +301,69 @@ export default function App() {
     if (isCloudEnabled) db.deleteNote(id).catch(logSyncError);
   };
 
+  const sendPing = ({ emoji, message }) => {
+    const ping = { id: Date.now(), fromUser: currentUser.id, toUser: partnerUser.id, emoji, message, seen: false, createdAt: new Date().toISOString() };
+    setPings(prev => [ping, ...prev]);
+    if (isCloudEnabled) db.addPing(ping).catch(logSyncError);
+    toast('Sent 💌');
+  };
+
+  const markPingsSeen = (ids) => {
+    setPings(prev => prev.map(p => ids.includes(p.id) ? { ...p, seen: true } : p));
+    if (isCloudEnabled) db.markPingsSeen(ids).catch(logSyncError);
+  };
+
+  // Notify on newly-arrived unseen pings addressed to me (realtime from the
+  // partner's device) — but not for pings that were already sitting there on
+  // the initial load, which get a dashboard card instead of a notification spam.
+  const [pingsLoaded, setPingsLoaded] = useState(false);
+  useEffect(() => {
+    if (!pingsLoaded) {
+      setPingsLoaded(true);
+      return;
+    }
+    const incoming = pings.filter(p => p.toUser === currentUser.id && !p.seen && p.fromUser === partnerUser.id);
+    const newest = incoming[0];
+    if (newest && Date.now() - new Date(newest.createdAt).getTime() < 15000) {
+      showSystemNotification(`💌 from ${partnerUser.name}`, newest.emoji + (newest.message ? ' ' + newest.message : ''));
+      toast(`${partnerUser.name} is thinking of you ${newest.emoji}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pings]);
+
+  const addBucketItem = ({ emoji, title, note }) => {
+    const item = { id: Date.now(), title, emoji: emoji || '✨', note: note || '', done: false, doneAt: null, createdBy: currentUser.id, createdAt: new Date().toISOString() };
+    setBucketList(prev => [item, ...prev]);
+    if (isCloudEnabled) db.addBucketItem(item).catch(logSyncError);
+  };
+
+  const updateBucketItem = (id, updates) => {
+    setBucketList(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+    if (isCloudEnabled) db.updateBucketItem(id, { ...bucketList.find(b => b.id === id), ...updates }).catch(logSyncError);
+  };
+
+  const toggleBucketDone = (id) => {
+    const item = bucketList.find(b => b.id === id);
+    if (!item) return;
+    updateBucketItem(id, { done: !item.done, doneAt: !item.done ? new Date().toISOString() : null });
+  };
+
+  const deleteBucketItem = (id) => {
+    setBucketList(prev => prev.filter(b => b.id !== id));
+    if (isCloudEnabled) db.deleteBucketItem(id).catch(logSyncError);
+  };
+
+  const updateAvatar = async (userId, blob) => {
+    try {
+      const url = await db.uploadAvatar(userId, blob);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, avatarUrl: url } : u));
+      await db.updateAvatar(userId, url);
+      toast('Looking good! 📸');
+    } catch (err) {
+      toast(err.message || 'Could not upload photo.', 'error');
+    }
+  };
+
   const updateProfile = (u1, u2) => {
     setUsers(prev => [
       { ...prev[0], ...u1 },
@@ -392,12 +469,13 @@ export default function App() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} users={users} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onSetTodoStatus={setTodoStatus} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} hiddenCards={currentUser.hiddenCards || []} onToggleCard={toggleDashboardCard} />;
+      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} partnerUser={partnerUser} users={users} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onSetTodoStatus={setTodoStatus} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} hiddenCards={currentUser.hiddenCards || []} onToggleCard={toggleDashboardCard} pings={pings} onMarkPingsSeen={markPingsSeen} />;
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={myCategoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onSetStatus={setTodoStatus} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
       case 'notes': return <Notes notes={notes} onAdd={addNote} onEdit={editNote} onDelete={deleteNote} users={users} currentUser={currentUser} />;
-      case 'profile': return <Profile users={users} currentUser={currentUser} partner={partnerUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} onToggleShareLocation={toggleShareLocation} onRefreshLocation={refreshMyLocation} />;
+      case 'us': return <Us bucketList={bucketList} onAdd={addBucketItem} onToggleDone={toggleBucketDone} onDelete={deleteBucketItem} users={users} currentUser={currentUser} />;
+      case 'profile': return <Profile users={users} currentUser={currentUser} partner={partnerUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} onToggleShareLocation={toggleShareLocation} onRefreshLocation={refreshMyLocation} onUpdateAvatar={updateAvatar} />;
       default: return null;
     }
   };
@@ -470,13 +548,32 @@ export default function App() {
             <MapPin size={18} />
             <span className="absolute -top-0.5 -right-0.5 text-[10px] leading-none">💕</span>
           </button>
+          <button
+            onClick={() => setShowThinkingOfYou(true)}
+            className="p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            title={`Send love to ${partnerUser.name}`}
+          >
+            <Mail size={18} />
+          </button>
         </div>
 
         <div className="flex items-center bg-gray-100 rounded-full p-1 cursor-pointer hover:bg-gray-200 transition-colors shrink-0" onClick={toggleUser}>
-          <div className={`px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${currentUser.id === 'u1' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}>
+          <div className={`flex items-center gap-1.5 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${currentUser.id === 'u1' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}>
+            {users[0].avatarUrl ? (
+              <img src={users[0].avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
+            ) : null}
+            {users[0].id === partnerUser.id && partnerOnline && (
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shrink-0" title="Online now" />
+            )}
             {users[0].name}
           </div>
-          <div className={`px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${currentUser.id === 'u2' ? 'bg-white shadow-sm text-rose-600' : 'text-gray-500'}`}>
+          <div className={`flex items-center gap-1.5 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${currentUser.id === 'u2' ? 'bg-white shadow-sm text-rose-600' : 'text-gray-500'}`}>
+            {users[1].avatarUrl ? (
+              <img src={users[1].avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
+            ) : null}
+            {users[1].id === partnerUser.id && partnerOnline && (
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shrink-0" title="Online now" />
+            )}
             {users[1].name}
           </div>
         </div>
@@ -486,6 +583,7 @@ export default function App() {
           <NavItem icon={<CreditCard size={20}/>} label="Expenses" active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} color={currentUser.text} />
           <NavItem icon={<CheckSquare size={20}/>} label="To-Dos" active={activeTab === 'todos'} onClick={() => setActiveTab('todos')} color={currentUser.text} />
           <NavItem icon={<NotebookPen size={20}/>} label="Notes" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} color={currentUser.text} />
+          <NavItem icon={<Heart size={20}/>} label="Us" active={activeTab === 'us'} onClick={() => setActiveTab('us')} color={currentUser.text} />
           <NavItem icon={<PieChartIcon size={20}/>} label="Analytics" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} color={currentUser.text} />
           <NavItem icon={<User size={20}/>} label="Profile" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} color={currentUser.text} />
         </div>
@@ -494,11 +592,19 @@ export default function App() {
       <div className="flex-1 overflow-y-auto h-[calc(100vh-4rem)] md:h-screen">
         <div className="p-4 md:p-8 w-full max-w-6xl mx-auto pb-24 md:pb-8">
         <header className="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">
-              Hey <span className={currentUser.text}>{currentUser.name}</span>
-            </h1>
-            <p className="text-gray-500 mt-1 text-sm md:text-base">Here is what's happening today.</p>
+          <div className="flex items-center gap-3">
+            {currentUser.avatarUrl && (
+              <img src={currentUser.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+            )}
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold">
+                Hey <span className={currentUser.text}>{currentUser.name}</span>
+              </h1>
+              <p className="text-gray-500 mt-1 text-sm md:text-base">Here is what's happening today.</p>
+              {partnerOnline && (
+                <p className="text-emerald-600 text-sm font-medium mt-1">💚 {partnerUser.name} is here right now</p>
+              )}
+            </div>
           </div>
         </header>
 
@@ -524,13 +630,22 @@ export default function App() {
 
       {/* MOBILE NAV (Bottom) */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-2 pb-safe z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <MobileNavItem icon={<Home size={22}/>} label="Home" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} color={currentUser.text} />
-        <MobileNavItem icon={<CreditCard size={22}/>} label="Expenses" active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} color={currentUser.text} />
-        <MobileNavItem icon={<CheckSquare size={22}/>} label="Tasks" active={activeTab === 'todos'} onClick={() => setActiveTab('todos')} color={currentUser.text} />
-        <MobileNavItem icon={<NotebookPen size={22}/>} label="Notes" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} color={currentUser.text} />
-        <MobileNavItem icon={<PieChartIcon size={22}/>} label="Insights" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} color={currentUser.text} />
-        <MobileNavItem icon={<User size={22}/>} label="Profile" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} color={currentUser.text} />
+        <MobileNavItem icon={<Home size={20}/>} label="Home" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} color={currentUser.text} />
+        <MobileNavItem icon={<CreditCard size={20}/>} label="Expenses" active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} color={currentUser.text} />
+        <MobileNavItem icon={<CheckSquare size={20}/>} label="Tasks" active={activeTab === 'todos'} onClick={() => setActiveTab('todos')} color={currentUser.text} />
+        <MobileNavItem icon={<NotebookPen size={20}/>} label="Notes" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} color={currentUser.text} />
+        <MobileNavItem icon={<Heart size={20}/>} label="Us" active={activeTab === 'us'} onClick={() => setActiveTab('us')} color={currentUser.text} />
+        <MobileNavItem icon={<PieChartIcon size={20}/>} label="Insights" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} color={currentUser.text} />
+        <MobileNavItem icon={<User size={20}/>} label="Profile" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} color={currentUser.text} />
       </div>
+
+      {showThinkingOfYou && (
+        <ThinkingOfYouModal
+          partner={partnerUser}
+          onSend={(payload) => { sendPing(payload); setShowThinkingOfYou(false); }}
+          onClose={() => setShowThinkingOfYou(false)}
+        />
+      )}
     </div>
   );
 }

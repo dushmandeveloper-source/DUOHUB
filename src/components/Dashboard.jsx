@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote, Clock, Settings } from 'lucide-react';
+import { Target, Edit2, Save, Plus, Calendar, CheckSquare, Wallet, PiggyBank, TrendingDown, CreditCard, Banknote, Clock, Settings, Mail, Globe } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
 import { toast } from '../ui';
+import { fetchWeather } from '../lib/weather';
 import CategoryPicker from './CategoryPicker';
 import SelectMenu from './SelectMenu';
 
@@ -14,7 +15,93 @@ const CARD_LABELS = {
   categoryBudgets: 'Category Budgets',
   quickExpense: 'Quick Log Expense',
   savingsGoal: 'Savings Goal',
+  partnerWorld: "Partner's World",
+  loveNotes: 'Love Notes',
 };
+
+// Fallback coordinates by timezone when the partner hasn't shared live GPS.
+const TIMEZONE_COORDS = {
+  'Asia/Shanghai': { lat: 31.23, lng: 121.47 },
+  'Asia/Colombo': { lat: 6.93, lng: 79.85 },
+};
+
+function contextLine(hour) {
+  if (hour >= 5 && hour < 11) return 'Morning coffee time ☕';
+  if (hour >= 11 && hour < 17) return 'Daytime over there';
+  if (hour >= 17 && hour < 22) return 'Evening — maybe say hi? 💬';
+  return 'Probably sleeping — sweet dreams 🌙';
+}
+
+// Live clock + weather for the partner's timezone/location.
+function PartnerWorldCard({ partnerUser, hiddenCards, onToggleCard, openMenuKey, setOpenMenuKey }) {
+  const [now, setNow] = useState(new Date());
+  const [weather, setWeather] = useState(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 30 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const coords = (partnerUser.lat != null && partnerUser.lng != null)
+      ? { lat: partnerUser.lat, lng: partnerUser.lng }
+      : TIMEZONE_COORDS[partnerUser.timezone];
+    if (!coords) { setWeather(null); return; }
+    fetchWeather(coords.lat, coords.lng).then(setWeather);
+  }, [partnerUser.lat, partnerUser.lng, partnerUser.timezone]);
+
+  const tz = partnerUser.timezone || 'UTC';
+  const timeStr = now.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true });
+  const dateStr = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'short', day: 'numeric' });
+  const hourNum = Number(now.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]);
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-lg font-bold flex items-center gap-2"><Globe size={18} className="text-indigo-400" /> In {partnerUser.name}'s world 🌏</h3>
+        <CardMenu cardKey="partnerWorld" hiddenCards={hiddenCards} onToggleCard={onToggleCard} open={openMenuKey === 'partnerWorld'} onOpenChange={setOpenMenuKey} />
+      </div>
+      <p className="text-2xl md:text-3xl font-bold text-gray-800">{timeStr}</p>
+      <p className="text-sm text-gray-400">{dateStr}</p>
+      <p className="text-sm text-gray-600 mt-3">
+        It's {timeStr}
+        {weather ? ` and ${weather.emoji} ${weather.temperature}°C ${weather.label}` : ''} in {partnerUser.name}'s world
+      </p>
+      <p className="text-sm font-medium text-indigo-500 mt-1">{contextLine(hourNum)}</p>
+    </div>
+  );
+}
+
+// Unseen "thinking of you" pings addressed to me, most recent first.
+function LoveNotesCard({ partnerUser, unseenPings, onMarkSeen, hiddenCards, onToggleCard, openMenuKey, setOpenMenuKey }) {
+  if (unseenPings.length === 0) return null;
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-rose-100 p-5 md:p-6">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-lg font-bold flex items-center gap-2"><Mail size={18} className="text-rose-400" /> Love notes 💌</h3>
+        <CardMenu cardKey="loveNotes" hiddenCards={hiddenCards} onToggleCard={onToggleCard} open={openMenuKey === 'loveNotes'} onOpenChange={setOpenMenuKey} />
+      </div>
+      <p className="text-sm text-gray-500 mb-3">{partnerUser.name} was thinking of you</p>
+      <div className="space-y-2 mb-4">
+        {unseenPings.slice(0, 10).map(p => (
+          <div key={p.id} className="flex items-center gap-3 bg-rose-50/60 rounded-2xl px-4 py-2.5">
+            <span className="text-2xl shrink-0">{p.emoji}</span>
+            <div className="flex-1 min-w-0">
+              {p.message && <p className="text-sm text-gray-700 break-words">{p.message}</p>}
+              <p className="text-[10px] text-gray-400">{new Date(p.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={() => onMarkSeen(unseenPings.map(p => p.id))}
+        className="w-full sm:w-auto bg-rose-500 text-white font-bold py-2.5 px-6 rounded-xl hover:bg-rose-600 transition-colors text-sm"
+      >
+        So sweet 🥰
+      </button>
+    </div>
+  );
+}
 
 // Small inline popover with a single "Hide/Show this card" action, used by the
 // gear icon on each dashboard card's header row.
@@ -45,7 +132,7 @@ function CardMenu({ cardKey, hiddenCards, onToggleCard, open, onOpenChange, ligh
   );
 }
 
-export default function Dashboard({ expenses, savingsGoal, currentUser, users, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onSetTodoStatus, categoryBudgets, incomes, hiddenCards = [], onToggleCard }) {
+export default function Dashboard({ expenses, savingsGoal, currentUser, partnerUser, users, onAddSavings, onUpdateGoal, onAddExpense, categories, monthlyPlans, selectedMonth, setSelectedMonth, availableMonths, todos, onSetTodoStatus, categoryBudgets, incomes, hiddenCards = [], onToggleCard, pings = [], onMarkPingsSeen }) {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [editName, setEditName] = useState(savingsGoal.name);
   const [editTarget, setEditTarget] = useState(savingsGoal.target);
@@ -128,6 +215,10 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, users, o
   monthExpenses.forEach(e => { spentByCategory[e.category] = (spentByCategory[e.category] || 0) + e.amount; });
   const topSpendEntry = Object.entries(spentByCategory).sort((a, b) => b[1] - a[1])[0];
   const topSpendCategory = topSpendEntry ? categories.find(c => c.id === topSpendEntry[0]) : null;
+  const unseenPings = pings
+    .filter(p => p.toUser === currentUser.id && !p.seen)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
   const budgetRows = Object.entries(categoryBudgets || {})
     .map(([catId, limit]) => {
       const spent = spentByCategory[catId] || 0;
@@ -152,6 +243,30 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, users, o
           options={availableMonths.map(m => ({ value: m, label: m }))}
         />
       </div>
+
+      {/* LOVE NOTES */}
+      {!hiddenCards.includes('loveNotes') && (
+        <LoveNotesCard
+          partnerUser={partnerUser}
+          unseenPings={unseenPings}
+          onMarkSeen={onMarkPingsSeen}
+          hiddenCards={hiddenCards}
+          onToggleCard={onToggleCard}
+          openMenuKey={openMenuKey}
+          setOpenMenuKey={setOpenMenuKey}
+        />
+      )}
+
+      {/* PARTNER'S WORLD */}
+      {!hiddenCards.includes('partnerWorld') && partnerUser && (
+        <PartnerWorldCard
+          partnerUser={partnerUser}
+          hiddenCards={hiddenCards}
+          onToggleCard={onToggleCard}
+          openMenuKey={openMenuKey}
+          setOpenMenuKey={setOpenMenuKey}
+        />
+      )}
 
       {/* World Clock */}
       {users && users.length > 0 && (

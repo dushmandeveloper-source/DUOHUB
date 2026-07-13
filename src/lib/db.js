@@ -56,6 +56,27 @@ const rowToIncome = (r) => ({
   date: r.date,
 });
 
+const rowToPing = (r) => ({
+  id: r.id,
+  fromUser: r.from_user,
+  toUser: r.to_user,
+  emoji: r.emoji,
+  message: r.message || '',
+  seen: !!r.seen,
+  createdAt: r.created_at,
+});
+
+const rowToBucketItem = (r) => ({
+  id: r.id,
+  title: r.title,
+  emoji: r.emoji || '✨',
+  note: r.note || '',
+  done: !!r.done,
+  doneAt: r.done_at || null,
+  createdBy: r.created_by,
+  createdAt: r.created_at,
+});
+
 const rowToNote = (r) => ({
   id: r.id,
   title: r.title,
@@ -81,7 +102,7 @@ const noteToRow = (n) => ({
 });
 
 export async function fetchAll() {
-  const [profiles, expenses, todos, plans, goals, budgets, incomes, notes] = await Promise.all([
+  const [profiles, expenses, todos, plans, goals, budgets, incomes, notes, pings, bucketList] = await Promise.all([
     supabase.from('profiles').select('*').then(unwrap),
     supabase.from('expenses').select('*').order('date', { ascending: false }).order('id', { ascending: false }).then(unwrap),
     supabase.from('todos').select('*').order('id', { ascending: false }).then(unwrap),
@@ -91,6 +112,9 @@ export async function fetchAll() {
     supabase.from('category_budgets').select('*').then(r => r.error ? [] : r.data),
     supabase.from('incomes').select('*').order('date', { ascending: false }).then(r => r.error ? [] : r.data),
     supabase.from('notes').select('*').order('updated_at', { ascending: false }).then(r => r.error ? [] : r.data),
+    // migration-14: pings and bucket_list may not exist yet either
+    supabase.from('pings').select('*').order('created_at', { ascending: false }).then(r => r.error ? [] : r.data),
+    supabase.from('bucket_list').select('*').order('created_at', { ascending: false }).then(r => r.error ? [] : r.data),
   ]);
 
   return {
@@ -104,6 +128,7 @@ export async function fetchAll() {
       lng: r.lng != null ? Number(r.lng) : null,
       locationAccuracy: r.location_accuracy != null ? Number(r.location_accuracy) : null,
       locationUpdatedAt: r.location_updated_at || null,
+      avatarUrl: r.avatar_url || null,
     }])),
     expenses: expenses.map(rowToExpense),
     todos: todos.map(rowToTodo),
@@ -124,6 +149,8 @@ export async function fetchAll() {
     }, { u1: {}, u2: {} }),
     incomes: incomes.map(rowToIncome),
     notes: notes.map(rowToNote),
+    pings: pings.map(rowToPing),
+    bucketList: bucketList.map(rowToBucketItem),
   };
 }
 
@@ -186,6 +213,9 @@ export const updateProfiles = (u1, u2) =>
 export const updateHiddenCards = (userId, hiddenCards) =>
   supabase.from('profiles').update({ hidden_cards: hiddenCards }).eq('id', userId).then(unwrap);
 
+export const updateAvatar = (userId, url) =>
+  supabase.from('profiles').update({ avatar_url: url }).eq('id', userId).then(unwrap);
+
 export const updateLocation = (userId, { lat, lng, accuracy }) =>
   supabase.from('profiles').update({
     lat, lng, location_accuracy: accuracy, location_updated_at: new Date().toISOString(),
@@ -242,6 +272,48 @@ export async function deleteNoteImage(url) {
 // same access pattern, no need for per-feature storage separation).
 export const uploadTodoImage = uploadNoteImage;
 export const deleteTodoImage = deleteNoteImage;
+
+// Profile avatars also reuse the `note-images` bucket, under avatars/.
+export async function uploadAvatar(userId, blob) {
+  const path = `avatars/${userId}-${Date.now()}.jpg`;
+  const { error } = await supabase.storage.from('note-images').upload(path, blob);
+  if (error) throw error;
+  const { data } = supabase.storage.from('note-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export const addPing = (ping) =>
+  supabase.from('pings').insert({
+    id: ping.id,
+    from_user: ping.fromUser,
+    to_user: ping.toUser,
+    emoji: ping.emoji,
+    message: ping.message || null,
+  }).then(unwrap);
+
+export const markPingsSeen = (ids) =>
+  supabase.from('pings').update({ seen: true }).in('id', ids).then(unwrap);
+
+export const addBucketItem = (item) =>
+  supabase.from('bucket_list').insert({
+    id: item.id,
+    title: item.title,
+    emoji: item.emoji || '✨',
+    note: item.note || null,
+    created_by: item.createdBy,
+  }).then(unwrap);
+
+export const updateBucketItem = (id, updates) =>
+  supabase.from('bucket_list').update({
+    title: updates.title,
+    emoji: updates.emoji,
+    note: updates.note,
+    done: updates.done,
+    done_at: updates.doneAt,
+  }).eq('id', id).then(unwrap);
+
+export const deleteBucketItem = (id) =>
+  supabase.from('bucket_list').delete().eq('id', id).then(unwrap);
 
 // Fires callback on any change made from another device.
 export function subscribeToChanges(onChange) {
