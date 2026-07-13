@@ -34,7 +34,7 @@ export default function App() {
   const [savingsGoals, setSavingsGoals] = useState({ u1: INITIAL_GOAL, u2: INITIAL_GOAL });
   const [incomes, setIncomes] = useState([]);
   const [monthlyPlans, setMonthlyPlans] = useState({ u1: INITIAL_PLAN, u2: INITIAL_PLAN });
-  const [categoryBudgets, setCategoryBudgets] = useState({});
+  const [categoryBudgets, setCategoryBudgets] = useState({ u1: {}, u2: {} });
   const [notification, setNotification] = useState(null);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
   const [updateReady, setUpdateReady] = useState(false);
@@ -202,6 +202,11 @@ export default function App() {
     if (isCloudEnabled) db.deleteTodo(id).catch(logSyncError);
   };
 
+  const editTodo = (id, updates) => {
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    if (isCloudEnabled) db.updateTodo(id, updates).catch(logSyncError);
+  };
+
   // Removes all expenses and due-dated tasks within the date range (inclusive)
   const resetRecords = (startDate, endDate) => {
     setExpenses(prev => prev.filter(e => e.date < startDate || e.date > endDate));
@@ -237,18 +242,22 @@ export default function App() {
 
   const setCategoryBudget = (category, amount) => {
     if (!Number.isFinite(amount) || amount <= 0) return;
-    setCategoryBudgets(prev => ({ ...prev, [category]: amount }));
-    if (isCloudEnabled) db.upsertCategoryBudget(category, amount).catch(logSyncError);
+    const owner = currentUser.id;
+    setCategoryBudgets(prev => ({ ...prev, [owner]: { ...prev[owner], [category]: amount } }));
+    if (isCloudEnabled) db.upsertCategoryBudget(owner, category, amount).catch(logSyncError);
   };
 
   const removeCategoryBudget = (category) => {
+    const owner = currentUser.id;
     setCategoryBudgets(prev => {
-      const next = { ...prev };
+      const next = { ...prev[owner] };
       delete next[category];
-      return next;
+      return { ...prev, [owner]: next };
     });
-    if (isCloudEnabled) db.deleteCategoryBudget(category).catch(logSyncError);
+    if (isCloudEnabled) db.deleteCategoryBudget(owner, category).catch(logSyncError);
   };
+
+  const myCategoryBudgets = categoryBudgets[currentUser.id] || {};
 
   const updateProfile = (u1, u2) => {
     setUsers(prev => [
@@ -260,10 +269,10 @@ export default function App() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onToggleTodo={toggleTodo} categoryBudgets={categoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
+      case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onToggleTodo={toggleTodo} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
-      case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={categoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
-      case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
+      case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={myCategoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
+      case 'todos': return <Todos todos={todos} onToggle={toggleTodo} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
       case 'profile': return <Profile users={users} currentUser={currentUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
       default: return null;
     }

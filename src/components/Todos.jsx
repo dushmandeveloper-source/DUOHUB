@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, CheckSquare, Trash2, Bell } from 'lucide-react';
+import { Plus, Calendar, CheckSquare, Trash2, Bell, Pencil, X, Check } from 'lucide-react';
 import { monthLabel } from '../data';
 import { getNotifyTime } from '../notifications';
 import { confirmDialog, toast } from '../ui';
@@ -7,13 +7,17 @@ import SelectMenu from './SelectMenu';
 import QuickDates from './QuickDates';
 import { todayISO, addDaysISO } from '../lib/dates';
 
-export default function Todos({ todos, onToggle, onAdd, onDelete, users, currentUser, availableMonths }) {
+export default function Todos({ todos, onToggle, onAdd, onDelete, onEdit, users, currentUser, availableMonths }) {
   const todayStr = todayISO();
   const [task, setTask] = useState('');
   const [assignTo, setAssignTo] = useState('shared');
   const [dueDate, setDueDate] = useState(todayStr); // defaults to today
   const [userFilter, setUserFilter] = useState(currentUser.id);
   const [monthFilter, setMonthFilter] = useState('all');
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [editAssignee, setEditAssignee] = useState('shared');
+  const [editDueDate, setEditDueDate] = useState('');
 
   // Default to the selected person's own tasks; follows the top toggle
   useEffect(() => {
@@ -27,6 +31,22 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
     toast('Task added');
     setTask('');
     setDueDate(todayStr);
+  };
+
+  const startEdit = (todo) => {
+    setEditingId(todo.id);
+    setEditText(todo.text);
+    setEditAssignee(todo.assignee);
+    setEditDueDate(todo.dueDate || '');
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  const saveEdit = (id) => {
+    if (!editText.trim()) return;
+    onEdit(id, { text: editText.trim(), assignee: editAssignee, dueDate: editDueDate });
+    toast('Task updated');
+    setEditingId(null);
   };
 
   const filteredTodos = todos.filter(t => {
@@ -101,6 +121,60 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
           const assigneeColor = todo.assignee === 'u1' ? 'text-blue-500 bg-blue-50' : todo.assignee === 'u2' ? 'text-rose-500 bg-rose-50' : 'text-gray-500 bg-gray-100';
           let dateWarning = false;
           if (todo.dueDate && !todo.completed) { dateWarning = todo.dueDate <= todayStr; }
+          if (editingId === todo.id) {
+            return (
+              <div
+                key={todo.id}
+                className="flex flex-col md:flex-row md:items-center gap-3 p-3 md:p-4 rounded-2xl border bg-white border-gray-200 shadow-sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="text"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveEdit(todo.id);
+                    if (e.key === 'Escape') cancelEdit();
+                  }}
+                  className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 focus:outline-none text-sm"
+                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <SelectMenu
+                    className="w-full sm:w-36"
+                    value={editAssignee}
+                    onChange={setEditAssignee}
+                    options={[
+                      { value: 'shared', label: 'Shared' },
+                      { value: 'u1', label: users[0].name },
+                      { value: 'u2', label: users[1].name },
+                    ]}
+                  />
+                  <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-200 w-full sm:w-auto">
+                    <Calendar size={16} className="text-gray-400 shrink-0" />
+                    <input
+                      type="date"
+                      value={editDueDate}
+                      onChange={(e) => setEditDueDate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveEdit(todo.id);
+                        if (e.key === 'Escape') cancelEdit();
+                      }}
+                      className="w-full bg-transparent text-sm focus:outline-none text-gray-600"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 justify-end shrink-0">
+                  <button onClick={() => saveEdit(todo.id)} className="text-gray-300 hover:text-green-500 transition-colors p-1" title="Save task">
+                    <Check size={18} />
+                  </button>
+                  <button onClick={cancelEdit} className="text-gray-300 hover:text-gray-500 transition-colors p-1" title="Cancel edit">
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={todo.id} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border transition-all ${todo.completed ? 'bg-gray-50 border-gray-100 opacity-60' : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'}`}>
               <div className="flex items-start md:items-center gap-3 md:gap-4 cursor-pointer flex-1 min-w-0" onClick={() => onToggle(todo.id)}>
@@ -112,6 +186,13 @@ export default function Todos({ todos, onToggle, onAdd, onDelete, users, current
               </div>
               <div className="flex items-center gap-1 ml-3 shrink-0">
                 <span className={`text-[10px] md:text-xs font-bold px-2 py-1 rounded-md text-center ${assigneeColor}`}>{assigneeName}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); startEdit(todo); }}
+                  className="text-gray-300 hover:text-blue-500 transition-colors p-1"
+                  title="Edit task"
+                >
+                  <Pencil size={16} />
+                </button>
                 <button
                   onClick={async (e) => {
                     e.stopPropagation();

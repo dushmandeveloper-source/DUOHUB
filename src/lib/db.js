@@ -73,7 +73,13 @@ export async function fetchAll() {
       return acc;
     }, { u1: {}, u2: {} }),
     goals: Object.fromEntries(goals.map(r => [r.owner, { name: r.name, target: Number(r.target), current: Number(r.current) }])),
-    categoryBudgets: Object.fromEntries(budgets.map(r => [r.category, Number(r.amount)])),
+    // budgets grouped per person: { u1: { groceries: 100 }, u2: { groceries: 50 } }
+    categoryBudgets: budgets.reduce((acc, r) => {
+      const owner = r.owner || 'u2';
+      if (!acc[owner]) acc[owner] = {};
+      acc[owner][r.category] = Number(r.amount);
+      return acc;
+    }, { u1: {}, u2: {} }),
     incomes: incomes.map(rowToIncome),
   };
 }
@@ -84,11 +90,11 @@ export const addIncome = (income) =>
 export const deleteIncome = (id) =>
   supabase.from('incomes').delete().eq('id', id).then(unwrap);
 
-export const upsertCategoryBudget = (category, amount) =>
-  supabase.from('category_budgets').upsert({ category, amount }).then(unwrap);
+export const upsertCategoryBudget = (owner, category, amount) =>
+  supabase.from('category_budgets').upsert({ owner, category, amount }, { onConflict: 'category,owner' }).then(unwrap);
 
-export const deleteCategoryBudget = (category) =>
-  supabase.from('category_budgets').delete().eq('category', category).then(unwrap);
+export const deleteCategoryBudget = (owner, category) =>
+  supabase.from('category_budgets').delete().eq('owner', owner).eq('category', category).then(unwrap);
 
 export const addExpense = (expense) =>
   supabase.from('expenses').insert(expenseToRow(expense)).then(unwrap);
@@ -98,6 +104,13 @@ export const addTodo = (todo) =>
 
 export const setTodoCompleted = (id, completed) =>
   supabase.from('todos').update({ completed }).eq('id', id).then(unwrap);
+
+export const updateTodo = (id, updates) =>
+  supabase.from('todos').update({
+    text: updates.text,
+    assignee: updates.assignee,
+    due_date: updates.dueDate || null,
+  }).eq('id', id).then(unwrap);
 
 export const deleteExpense = (id) =>
   supabase.from('expenses').delete().eq('id', id).then(unwrap);

@@ -48,8 +48,10 @@ create table if not exists incomes (
 );
 
 create table if not exists category_budgets (
-  category text primary key,                 -- category id, e.g. 'groceries'
-  amount double precision not null default 0 -- monthly limit
+  category text not null,                    -- category id, e.g. 'groceries'
+  owner text not null references profiles(id),
+  amount double precision not null default 0, -- monthly limit
+  primary key (category, owner)
 );
 
 create table if not exists savings_goals (
