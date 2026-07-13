@@ -15,6 +15,7 @@ const uploadImage = (file) => (isCloudEnabled ? db.uploadTodoImage(file) : Promi
 
 export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, users, currentUser, availableMonths }) {
   const todayStr = todayISO();
+  const [isComposing, setIsComposing] = useState(false);
   const [task, setTask] = useState('');
   const [assignTo, setAssignTo] = useState('shared');
   const [dueDate, setDueDate] = useState(todayStr); // defaults to today
@@ -45,6 +46,7 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
     setTask('');
     setDueDate(todayStr);
     setImages([]);
+    setIsComposing(false);
   };
 
   const startEdit = (todo) => {
@@ -77,6 +79,14 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
   });
   return (
     <div className="space-y-6">
+      {!isComposing ? (
+        <button
+          onClick={() => setIsComposing(true)}
+          className="w-full flex items-center justify-center gap-2 bg-white border border-dashed border-gray-300 rounded-2xl px-4 py-3.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+        >
+          <Plus size={16} /> Add Task
+        </button>
+      ) : (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
         <h3 className="text-lg font-bold mb-4">Add Task</h3>
         <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-3 md:gap-2">
@@ -90,7 +100,7 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
               { value: 'u2', label: users[1].name },
             ]}
           />
-          <input type="text" value={task} onChange={(e) => setTask(e.target.value)} placeholder="Add a new task..." className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+          <input type="text" value={task} onChange={(e) => setTask(e.target.value)} placeholder="Add a new task..." autoFocus className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 w-full md:w-auto">
             <Calendar size={16} className="text-gray-400 shrink-0" />
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full bg-transparent text-sm focus:outline-none text-gray-600" />
@@ -128,7 +138,13 @@ export default function Todos({ todos, onSetStatus, onAdd, onDelete, onEdit, use
             uploadFn={uploadImage}
           />
         </div>
+        <div className="flex justify-end mt-3">
+          <button onClick={() => setIsComposing(false)} className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
       </div>
+      )}
 
       <div>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">

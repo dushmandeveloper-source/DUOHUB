@@ -10,6 +10,7 @@ import { todayISO, addDaysISO } from '../lib/dates';
 
 function AddExpenseForm({ onAdd, categories, currentUser }) {
   const today = todayISO();
+  const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
   const [cat, setCat] = useState('groceries');
@@ -23,13 +24,25 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
     setAmount('');
     setDesc('');
     setDate(today);
+    setOpen(false);
   };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center justify-center gap-2 bg-white border border-dashed border-gray-300 rounded-2xl px-4 py-3.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+      >
+        <Plus size={16} /> Add Expense
+      </button>
+    );
+  }
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 md:p-6">
       <h3 className="text-lg font-bold mb-4">Add Expense <span className="text-xs font-medium text-gray-400">(paid by {currentUser.name})</span></h3>
       <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <input type="number" step="0.01" min="0" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+        <input type="number" step="0.01" min="0" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
         <input type="text" placeholder="What was it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm lg:col-span-2" />
         <CategoryPicker categories={categories} value={cat} onChange={setCat} />
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-600" />
@@ -46,9 +59,14 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
             ]}
           />
         </div>
-        <button type="submit" className="sm:col-span-2 lg:col-span-5 bg-gray-900 text-white rounded-xl px-6 py-3 font-medium hover:bg-gray-800 transition-colors active:scale-95 text-sm flex items-center justify-center gap-2">
-          <Plus size={16} /> Add Expense
-        </button>
+        <div className="sm:col-span-2 lg:col-span-5 flex items-center gap-2">
+          <button type="button" onClick={() => setOpen(false)} className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2.5 rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button type="submit" className="flex-1 bg-gray-900 text-white rounded-xl px-6 py-3 font-medium hover:bg-gray-800 transition-colors active:scale-95 text-sm flex items-center justify-center gap-2">
+            <Plus size={16} /> Add Expense
+          </button>
+        </div>
       </form>
     </div>
   );
