@@ -54,8 +54,28 @@ const rowToIncome = (r) => ({
   date: r.date,
 });
 
+const rowToNote = (r) => ({
+  id: r.id,
+  title: r.title,
+  content: r.content,
+  owner: r.owner,
+  images: Array.isArray(r.images) ? r.images : [],
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+const noteToRow = (n) => ({
+  id: n.id,
+  title: n.title,
+  content: n.content,
+  owner: n.owner,
+  images: n.images || [],
+  created_at: n.createdAt,
+  updated_at: n.updatedAt,
+});
+
 export async function fetchAll() {
-  const [profiles, expenses, todos, plans, goals, budgets, incomes] = await Promise.all([
+  const [profiles, expenses, todos, plans, goals, budgets, incomes, notes] = await Promise.all([
     supabase.from('profiles').select('*').then(unwrap),
     supabase.from('expenses').select('*').order('date', { ascending: false }).order('id', { ascending: false }).then(unwrap),
     supabase.from('todos').select('*').order('id', { ascending: false }).then(unwrap),
@@ -64,6 +84,7 @@ export async function fetchAll() {
     // tolerant: these tables may not exist until their migrations have run
     supabase.from('category_budgets').select('*').then(r => r.error ? [] : r.data),
     supabase.from('incomes').select('*').order('date', { ascending: false }).then(r => r.error ? [] : r.data),
+    supabase.from('notes').select('*').order('updated_at', { ascending: false }).then(r => r.error ? [] : r.data),
   ]);
 
   return {
@@ -91,6 +112,7 @@ export async function fetchAll() {
       return acc;
     }, { u1: {}, u2: {} }),
     incomes: incomes.map(rowToIncome),
+    notes: notes.map(rowToNote),
   };
 }
 
@@ -151,6 +173,43 @@ export const updateProfiles = (u1, u2) =>
 
 export const updateHiddenCards = (userId, hiddenCards) =>
   supabase.from('profiles').update({ hidden_cards: hiddenCards }).eq('id', userId).then(unwrap);
+
+export const addNote = (note) =>
+  supabase.from('notes').insert(noteToRow(note)).then(unwrap);
+
+export const updateNote = (id, updates) =>
+  supabase.from('notes').update({
+    title: updates.title,
+    content: updates.content,
+    owner: updates.owner,
+    images: updates.images,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id).then(unwrap);
+
+export const deleteNote = (id) =>
+  supabase.from('notes').delete().eq('id', id).then(unwrap);
+
+export async function uploadNoteImage(file) {
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
+  const { error } = await supabase.storage.from('note-images').upload(path, file);
+  if (error) throw error;
+  const { data } = supabase.storage.from('note-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// Best-effort: a failed delete just leaves an orphan file in storage.
+export async function deleteNoteImage(url) {
+  try {
+    const marker = '/note-images/';
+    const idx = url.indexOf(marker);
+    if (idx === -1) return;
+    const path = decodeURIComponent(url.slice(idx + marker.length));
+    const { error } = await supabase.storage.from('note-images').remove([path]);
+    if (error) console.error('Failed to delete note image:', error);
+  } catch (err) {
+    console.error('Failed to delete note image:', err);
+  }
+}
 
 // Fires callback on any change made from another device.
 export function subscribeToChanges(onChange) {

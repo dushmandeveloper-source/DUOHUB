@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Home, CreditCard, CheckSquare, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon } from 'lucide-react';
+import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon } from 'lucide-react';
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { showSystemNotification, getNotifyTime, enableBackgroundCheck } from './notifications';
@@ -13,6 +13,7 @@ import Dashboard from './components/Dashboard';
 import Expenses from './components/Expenses';
 import Analytics from './components/Analytics';
 import Todos from './components/Todos';
+import Notes from './components/Notes';
 import Profile from './components/Profile';
 
 const logSyncError = (err) => console.error('Cloud sync failed:', err);
@@ -35,6 +36,7 @@ export default function App() {
   const [incomes, setIncomes] = useState([]);
   const [monthlyPlans, setMonthlyPlans] = useState({ u1: INITIAL_PLAN, u2: INITIAL_PLAN });
   const [categoryBudgets, setCategoryBudgets] = useState({ u1: {}, u2: {} });
+  const [notes, setNotes] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
   const [updateReady, setUpdateReady] = useState(false);
@@ -72,6 +74,7 @@ export default function App() {
       setSavingsGoals(prev => ({ ...prev, ...data.goals }));
       setCategoryBudgets(data.categoryBudgets);
       setIncomes(data.incomes);
+      setNotes(data.notes);
       setCloudStatus('online');
     } catch (err) {
       logSyncError(err);
@@ -260,6 +263,24 @@ export default function App() {
 
   const myCategoryBudgets = categoryBudgets[currentUser.id] || {};
 
+  const addNote = (note) => {
+    const now = new Date().toISOString();
+    const newNote = { ...note, id: Date.now(), createdAt: now, updatedAt: now };
+    setNotes(prev => [newNote, ...prev]);
+    if (isCloudEnabled) db.addNote(newNote).catch(logSyncError);
+  };
+
+  const editNote = (id, updates) => {
+    const updatedAt = new Date().toISOString();
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates, updatedAt } : n));
+    if (isCloudEnabled) db.updateNote(id, updates).catch(logSyncError);
+  };
+
+  const deleteNote = (id) => {
+    setNotes(prev => prev.filter(n => n.id !== id));
+    if (isCloudEnabled) db.deleteNote(id).catch(logSyncError);
+  };
+
   const updateProfile = (u1, u2) => {
     setUsers(prev => [
       { ...prev[0], ...u1 },
@@ -281,6 +302,7 @@ export default function App() {
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={myCategoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onSetStatus={setTodoStatus} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
+      case 'notes': return <Notes notes={notes} onAdd={addNote} onEdit={editNote} onDelete={deleteNote} users={users} currentUser={currentUser} />;
       case 'profile': return <Profile users={users} currentUser={currentUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} />;
       default: return null;
     }
@@ -352,6 +374,7 @@ export default function App() {
           <NavItem icon={<Home size={20}/>} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} color={currentUser.text} />
           <NavItem icon={<CreditCard size={20}/>} label="Expenses" active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} color={currentUser.text} />
           <NavItem icon={<CheckSquare size={20}/>} label="To-Dos" active={activeTab === 'todos'} onClick={() => setActiveTab('todos')} color={currentUser.text} />
+          <NavItem icon={<NotebookPen size={20}/>} label="Notes" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} color={currentUser.text} />
           <NavItem icon={<PieChartIcon size={20}/>} label="Analytics" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} color={currentUser.text} />
           <NavItem icon={<User size={20}/>} label="Profile" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} color={currentUser.text} />
         </div>
@@ -393,6 +416,7 @@ export default function App() {
         <MobileNavItem icon={<Home size={22}/>} label="Home" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} color={currentUser.text} />
         <MobileNavItem icon={<CreditCard size={22}/>} label="Expenses" active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} color={currentUser.text} />
         <MobileNavItem icon={<CheckSquare size={22}/>} label="Tasks" active={activeTab === 'todos'} onClick={() => setActiveTab('todos')} color={currentUser.text} />
+        <MobileNavItem icon={<NotebookPen size={22}/>} label="Notes" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} color={currentUser.text} />
         <MobileNavItem icon={<PieChartIcon size={22}/>} label="Insights" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} color={currentUser.text} />
         <MobileNavItem icon={<User size={22}/>} label="Profile" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} color={currentUser.text} />
       </div>
