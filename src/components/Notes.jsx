@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, Pencil, Loader2, Search, ArrowLeft, Palette } from 'lucide-react';
 import { confirmDialog, toast } from '../ui';
 import SelectMenu from './SelectMenu';
@@ -51,10 +51,15 @@ function nextAutoColor(notes) {
 export default function Notes({ notes, onAdd, onEdit, onDelete, users, currentUser }) {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'view' | 'edit'
   const [activeNote, setActiveNote] = useState(null);
-  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState(currentUser.id);
   const [searchQuery, setSearchQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { images, index } | null
+
+  // Default to the selected person's own notes; follows the top toggle
+  useEffect(() => {
+    setOwnerFilter(currentUser.id);
+  }, [currentUser.id]);
 
   const [title, setTitle] = useState(emptyDraft.title);
   const [owner, setOwner] = useState(emptyDraft.owner);

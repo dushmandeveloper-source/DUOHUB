@@ -92,92 +92,94 @@ export default function ImageLightbox({ images, index, onClose, onIndexChange })
 
   return (
     <div
-      className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center animate-[fadeIn_0.15s_ease-out]"
+      className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-[fadeIn_0.15s_ease-out]"
       onClick={onClose}
     >
-      {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 z-10" onClick={(e) => e.stopPropagation()}>
-        {hasMultiple ? (
-          <span className="text-xs font-bold text-white/70 bg-white/10 px-3 py-1.5 rounded-full">
-            {index + 1} / {images.length}
-          </span>
-        ) : <span />}
-        <div className="flex items-center gap-1.5">
-          <button onClick={zoomOut} disabled={scale <= MIN_SCALE} className="text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors p-2 rounded-full" title="Zoom out">
-            <ZoomOut size={18} />
-          </button>
-          <button onClick={zoomIn} disabled={scale >= MAX_SCALE} className="text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors p-2 rounded-full" title="Zoom in">
-            <ZoomIn size={18} />
-          </button>
-          <button onClick={handleDownload} className="text-white/70 hover:text-white hover:bg-white/10 transition-colors p-2 rounded-full" title="Download">
-            <Download size={18} />
-          </button>
-          <button onClick={onClose} className="text-white/70 hover:text-white hover:bg-white/10 transition-colors p-2 rounded-full" title="Close">
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* Image stage */}
-      <div className="relative flex-1 w-full flex items-center justify-center overflow-hidden px-4">
-        {hasMultiple && (
-          <button
-            onClick={(e) => { e.stopPropagation(); goPrev(); }}
-            className="hidden sm:flex absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-10 text-white/70 hover:text-white hover:bg-white/10 transition-colors p-2.5 bg-white/5 rounded-full"
-            title="Previous image"
-          >
-            <ChevronLeft size={22} />
-          </button>
-        )}
-
-        <img
-          key={images[index]}
-          src={images[index]}
-          alt=""
-          className="max-w-full max-h-[75vh] object-contain rounded-lg select-none animate-[popIn_0.15s_ease-out]"
-          style={{
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-            transition: pinchRef.current.active || panRef.current.active ? 'none' : 'transform 0.15s ease-out',
-            touchAction: 'none',
-            cursor: scale > 1 ? 'grab' : 'default',
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onWheel={handleWheel}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onDoubleClick={(e) => { e.stopPropagation(); scale > 1 ? resetZoom() : setScale(2); }}
-          draggable={false}
-        />
-
-        {hasMultiple && (
-          <button
-            onClick={(e) => { e.stopPropagation(); goNext(); }}
-            className="hidden sm:flex absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-10 text-white/70 hover:text-white hover:bg-white/10 transition-colors p-2.5 bg-white/5 rounded-full"
-            title="Next image"
-          >
-            <ChevronRight size={22} />
-          </button>
-        )}
-      </div>
-
-      {/* Bottom thumbnail strip */}
-      {hasMultiple && (
-        <div
-          className="w-full max-w-md overflow-x-auto flex gap-2 px-4 pb-6 pt-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {images.map((url, i) => (
-            <button
-              key={url}
-              onClick={() => { resetZoom(); onIndexChange(i); }}
-              className={`shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === index ? 'border-white scale-105' : 'border-transparent opacity-50 hover:opacity-80'}`}
-            >
-              <img src={url} alt="" className="w-full h-full object-cover" />
+      <div
+        className="relative w-full max-w-3xl max-h-full bg-gray-900 rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col animate-[popIn_0.15s_ease-out]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Card header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+          {hasMultiple ? (
+            <span className="text-xs font-bold text-white/70 bg-white/10 px-3 py-1.5 rounded-full">
+              {index + 1} / {images.length}
+            </span>
+          ) : <span />}
+          <div className="flex items-center gap-1.5">
+            <button onClick={zoomOut} disabled={scale <= MIN_SCALE} className="text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors p-2 rounded-full" title="Zoom out">
+              <ZoomOut size={18} />
             </button>
-          ))}
+            <button onClick={zoomIn} disabled={scale >= MAX_SCALE} className="text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors p-2 rounded-full" title="Zoom in">
+              <ZoomIn size={18} />
+            </button>
+            <button onClick={handleDownload} className="text-white/70 hover:text-white hover:bg-white/10 transition-colors p-2 rounded-full" title="Download">
+              <Download size={18} />
+            </button>
+            <button onClick={onClose} className="text-white/70 hover:text-white hover:bg-white/10 transition-colors p-2 rounded-full" title="Close">
+              <X size={20} />
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Image stage */}
+        <div className="relative flex-1 min-h-[50vh] max-h-[65vh] flex items-center justify-center overflow-hidden bg-black/30 px-2">
+          {hasMultiple && (
+            <button
+              onClick={(e) => { e.stopPropagation(); goPrev(); }}
+              className="hidden sm:flex absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-10 text-white/70 hover:text-white hover:bg-white/10 transition-colors p-2.5 bg-black/20 rounded-full"
+              title="Previous image"
+            >
+              <ChevronLeft size={22} />
+            </button>
+          )}
+
+          <img
+            key={images[index]}
+            src={images[index]}
+            alt=""
+            className="max-w-full max-h-full object-contain select-none animate-[popIn_0.15s_ease-out]"
+            style={{
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+              transition: pinchRef.current.active || panRef.current.active ? 'none' : 'transform 0.15s ease-out',
+              touchAction: 'none',
+              cursor: scale > 1 ? 'grab' : 'default',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onWheel={handleWheel}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onDoubleClick={(e) => { e.stopPropagation(); scale > 1 ? resetZoom() : setScale(2); }}
+            draggable={false}
+          />
+
+          {hasMultiple && (
+            <button
+              onClick={(e) => { e.stopPropagation(); goNext(); }}
+              className="hidden sm:flex absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-10 text-white/70 hover:text-white hover:bg-white/10 transition-colors p-2.5 bg-black/20 rounded-full"
+              title="Next image"
+            >
+              <ChevronRight size={22} />
+            </button>
+          )}
+        </div>
+
+        {/* Bottom thumbnail strip */}
+        {hasMultiple && (
+          <div className="w-full overflow-x-auto flex gap-2 px-4 py-3 border-t border-white/10 shrink-0">
+            {images.map((url, i) => (
+              <button
+                key={url}
+                onClick={() => { resetZoom(); onIndexChange(i); }}
+                className={`shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === index ? 'border-white scale-105' : 'border-transparent opacity-50 hover:opacity-80'}`}
+              >
+                <img src={url} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
