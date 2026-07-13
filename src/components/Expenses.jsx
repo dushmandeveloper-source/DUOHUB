@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Filter } from 'lucide-react';
 import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
 import { confirmDialog, toast } from '../ui';
@@ -33,10 +33,12 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
         <input type="text" placeholder="What was it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm lg:col-span-2" />
         <CategoryPicker categories={categories} value={cat} onChange={setCat} />
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-600" />
-        <div className="sm:col-span-2 lg:col-span-5">
+        <div className="sm:col-span-2 lg:col-span-5 flex flex-col sm:flex-row sm:items-center gap-2">
+          <span className="text-[10px] font-medium text-gray-400 shrink-0">Set date:</span>
           <QuickDates
             value={date}
             onChange={setDate}
+            variant="muted"
             options={[
               { label: 'Today', date: today },
               { label: 'Yesterday', date: addDaysISO(-1) },
@@ -101,8 +103,10 @@ export default function Expenses({ expenses, users, categories, availableMonths,
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4 px-2">
-          <span className="text-xs font-bold text-gray-400 shrink-0">Quick filter:</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4 bg-indigo-50 border border-indigo-100 rounded-2xl px-3 py-2.5">
+          <span className="text-xs font-bold text-indigo-500 flex items-center gap-1.5 shrink-0">
+            <Filter size={12} /> Filter list by date
+          </span>
           <QuickDates
             value={dateFilter}
             onChange={(d) => setDateFilter(prev => prev === d ? null : d)}
