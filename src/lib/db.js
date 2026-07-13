@@ -66,6 +66,16 @@ const rowToPing = (r) => ({
   createdAt: r.created_at,
 });
 
+const rowToMessage = (r) => ({
+  id: r.id,
+  sender: r.sender,
+  kind: r.kind || 'text',
+  body: r.body || null,
+  mediaUrl: r.media_url || null,
+  seen: !!r.seen,
+  createdAt: r.created_at,
+});
+
 const rowToBucketItem = (r) => ({
   id: r.id,
   title: r.title,
@@ -102,7 +112,7 @@ const noteToRow = (n) => ({
 });
 
 export async function fetchAll() {
-  const [profiles, expenses, todos, plans, goals, budgets, incomes, notes, pings, bucketList] = await Promise.all([
+  const [profiles, expenses, todos, plans, goals, budgets, incomes, notes, pings, bucketList, messages] = await Promise.all([
     supabase.from('profiles').select('*').then(unwrap),
     supabase.from('expenses').select('*').order('date', { ascending: false }).order('id', { ascending: false }).then(unwrap),
     supabase.from('todos').select('*').order('id', { ascending: false }).then(unwrap),
@@ -115,6 +125,8 @@ export async function fetchAll() {
     // migration-14: pings and bucket_list may not exist yet either
     supabase.from('pings').select('*').order('created_at', { ascending: false }).then(r => r.error ? [] : r.data),
     supabase.from('bucket_list').select('*').order('created_at', { ascending: false }).then(r => r.error ? [] : r.data),
+    // migration-15: messages may not exist yet either
+    supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(500).then(r => r.error ? [] : r.data),
   ]);
 
   return {
@@ -151,6 +163,8 @@ export async function fetchAll() {
     notes: notes.map(rowToNote),
     pings: pings.map(rowToPing),
     bucketList: bucketList.map(rowToBucketItem),
+    // fetched newest-first (limit 500) — reverse to ascending chronological order
+    messages: messages.slice().reverse().map(rowToMessage),
   };
 }
 
@@ -314,6 +328,31 @@ export const updateBucketItem = (id, updates) =>
 
 export const deleteBucketItem = (id) =>
   supabase.from('bucket_list').delete().eq('id', id).then(unwrap);
+
+export const addMessage = (msg) =>
+  supabase.from('messages').insert({
+    id: msg.id,
+    sender: msg.sender,
+    kind: msg.kind,
+    body: msg.body ?? null,
+    media_url: msg.mediaUrl ?? null,
+    seen: false,
+  }).then(unwrap);
+
+export const markMessagesSeen = (ids) =>
+  supabase.from('messages').update({ seen: true }).in('id', ids).then(unwrap);
+
+export const deleteMessage = (id) =>
+  supabase.from('messages').delete().eq('id', id).then(unwrap);
+
+// Chat media (images/videos) also reuses the `note-images` bucket, under chat/.
+export async function uploadChatMedia(blob, ext) {
+  const path = `chat/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('note-images').upload(path, blob);
+  if (error) throw error;
+  const { data } = supabase.storage.from('note-images').getPublicUrl(path);
+  return data.publicUrl;
+}
 
 // Fires callback on any change made from another device.
 export function subscribeToChanges(onChange) {

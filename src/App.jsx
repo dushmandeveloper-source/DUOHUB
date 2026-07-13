@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon, MapPin, Heart, Mail } from 'lucide-react';
+import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, User, WifiOff, RefreshCw, Sun, Moon, MapPin, Heart, Mail, MessageCircle } from 'lucide-react';
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { usePresence } from './hooks/usePresence';
@@ -18,6 +18,7 @@ import Analytics from './components/Analytics';
 import Todos from './components/Todos';
 import Notes from './components/Notes';
 import Us from './components/Us';
+import Chat from './components/Chat';
 import Profile from './components/Profile';
 import LocationMap from './components/LocationMap';
 import ThinkingOfYouModal from './components/ThinkingOfYouModal';
@@ -45,6 +46,7 @@ export default function App() {
   const [notes, setNotes] = useState([]);
   const [pings, setPings] = useState([]);
   const [bucketList, setBucketList] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [cloudStatus, setCloudStatus] = useState(isCloudEnabled ? 'connecting' : 'local');
   const [updateReady, setUpdateReady] = useState(false);
@@ -98,6 +100,7 @@ export default function App() {
       setNotes(data.notes);
       setPings(data.pings);
       setBucketList(data.bucketList);
+      setMessages(data.messages);
       setCloudStatus('online');
     } catch (err) {
       logSyncError(err);
@@ -338,6 +341,49 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pings]);
 
+  const sendMessage = ({ kind, body, mediaUrl }) => {
+    const msg = { id: Date.now(), sender: currentUser.id, kind, body: body || null, mediaUrl: mediaUrl || null, seen: false, createdAt: new Date().toISOString() };
+    setMessages(prev => [...prev, msg]);
+    if (isCloudEnabled) db.addMessage(msg).catch(logSyncError);
+  };
+
+  const deleteMessage = (id) => {
+    setMessages(prev => prev.filter(m => m.id !== id));
+    if (isCloudEnabled) db.deleteMessage(id).catch(logSyncError);
+  };
+
+  const markChatSeen = () => {
+    const unseenIds = messages.filter(m => m.sender === partnerUser.id && !m.seen).map(m => m.id);
+    if (unseenIds.length === 0) return;
+    setMessages(prev => prev.map(m => unseenIds.includes(m.id) ? { ...m, seen: true } : m));
+    if (isCloudEnabled) db.markMessagesSeen(unseenIds).catch(logSyncError);
+  };
+
+  const unseenChatCount = useMemo(() => messages.filter(m => m.sender !== currentUser.id && !m.seen).length, [messages, currentUser.id]);
+
+  // Notify on newly-arrived messages from the partner, same pattern as pings —
+  // skip the notification while the chat tab is already open and visible.
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
+  useEffect(() => {
+    if (!messagesLoaded) {
+      setMessagesLoaded(true);
+      return;
+    }
+    const incoming = messages.filter(m => m.sender === partnerUser.id);
+    const newest = incoming[incoming.length - 1];
+    if (newest && Date.now() - new Date(newest.createdAt).getTime() < 15000) {
+      if (!(activeTab === 'chat' && document.visibilityState === 'visible')) {
+        const preview = newest.kind === 'text' ? newest.body
+          : newest.kind === 'image' ? '📷 Photo'
+          : newest.kind === 'video' ? '🎥 Video'
+          : newest.body;
+        toast(`New message from ${partnerUser.name} 💬: ${preview}`);
+        showSystemNotification(`💬 ${partnerUser.name}`, preview);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
   const addBucketItem = ({ emoji, title, note }) => {
     const item = { id: Date.now(), title, emoji: emoji || '✨', note: note || '', done: false, doneAt: null, createdBy: currentUser.id, createdAt: new Date().toISOString() };
     setBucketList(prev => [item, ...prev]);
@@ -477,6 +523,7 @@ export default function App() {
   const renderTab = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard expenses={myExpenses} savingsGoal={currentGoal} currentUser={currentUser} partnerUser={partnerUser} users={users} onAddSavings={addSavings} onUpdateGoal={updateSavingsGoal} onAddExpense={addExpense} categories={CATEGORIES} monthlyPlans={myPlans} selectedMonth={selectedDashboardMonth} setSelectedMonth={setSelectedDashboardMonth} availableMonths={availableMonths} todos={myTodos} onSetTodoStatus={setTodoStatus} categoryBudgets={myCategoryBudgets} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} hiddenCards={currentUser.hiddenCards || []} onToggleCard={toggleDashboardCard} pings={pings} onMarkPingsSeen={markPingsSeen} />;
+      case 'chat': return <Chat messages={messages} currentUser={currentUser} partnerUser={partnerUser} partnerOnline={partnerOnline} onSend={sendMessage} onDelete={deleteMessage} onMarkSeen={markChatSeen} />;
       case 'expenses': return <Expenses expenses={expenses} users={users} categories={CATEGORIES} availableMonths={availableMonths} onAdd={addExpense} onDelete={deleteExpense} currentUser={currentUser} />;
       case 'analytics': return <Analytics expenses={myExpenses} categories={CATEGORIES} currency={currentUser.currency} categoryBudgets={myCategoryBudgets} onSetBudget={setCategoryBudget} onRemoveBudget={removeCategoryBudget} />;
       case 'todos': return <Todos todos={todos} onSetStatus={setTodoStatus} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
@@ -537,34 +584,41 @@ export default function App() {
 
       {/* SIDEBAR (Desktop) */}
       <div className="bg-white border-b md:border-r border-gray-200 w-full md:w-64 md:min-h-screen flex flex-row md:flex-col justify-between md:justify-start md:gap-6 items-center md:items-start p-4 md:p-6 sticky top-0 z-40 shadow-sm md:shadow-none shrink-0 h-16 md:h-auto">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-xl shadow-md shrink-0">
-            D
+        <div className="flex flex-row md:flex-col items-center md:items-start gap-2 md:gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-xl shadow-md shrink-0">
+              D
+            </div>
+            <span className="hidden min-[400px]:inline md:inline text-lg md:text-xl font-extrabold tracking-tight">DuoHub</span>
+            <span className={`w-2 h-2 rounded-full ${syncIndicator.color}`} title={syncIndicator.label}></span>
           </div>
-          <span className="text-lg md:text-xl font-extrabold tracking-tight">DuoHub</span>
-          <span className={`w-2 h-2 rounded-full ${syncIndicator.color}`} title={syncIndicator.label}></span>
-          <button
-            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors ml-1"
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button
-            onClick={() => setShowLocationMap(true)}
-            className="relative p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-            title={`Where is ${partnerUser.name}?`}
-          >
-            <MapPin size={18} />
-            <span className="absolute -top-0.5 -right-0.5 text-[10px] leading-none">💕</span>
-          </button>
-          <button
-            onClick={() => setShowThinkingOfYou(true)}
-            className="p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-            title={`Send love to ${partnerUser.name}`}
-          >
-            <Mail size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              className="p-1 md:p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun size={16} className="md:hidden" /> : <Moon size={16} className="md:hidden" />}
+              {theme === 'dark' ? <Sun size={18} className="hidden md:block" /> : <Moon size={18} className="hidden md:block" />}
+            </button>
+            <button
+              onClick={() => setShowLocationMap(true)}
+              className="relative p-1 md:p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              title={`Where is ${partnerUser.name}?`}
+            >
+              <MapPin size={16} className="md:hidden" />
+              <MapPin size={18} className="hidden md:block" />
+              <span className="absolute -top-0.5 -right-0.5 text-[10px] leading-none">💕</span>
+            </button>
+            <button
+              onClick={() => setShowThinkingOfYou(true)}
+              className="p-1 md:p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              title={`Send love to ${partnerUser.name}`}
+            >
+              <Mail size={16} className="md:hidden" />
+              <Mail size={18} className="hidden md:block" />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center bg-gray-100 rounded-full p-1 cursor-pointer hover:bg-gray-200 transition-colors shrink-0" onClick={toggleUser}>
@@ -590,6 +644,7 @@ export default function App() {
 
         <div className="hidden md:flex flex-col gap-2 w-full mt-2">
           <NavItem icon={<Home size={20}/>} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} color={currentUser.text} />
+          <NavItem icon={<MessageCircle size={20}/>} label="Chat" active={activeTab === 'chat'} onClick={() => setActiveTab('chat')} color={currentUser.text} badge={unseenChatCount} />
           <NavItem icon={<CreditCard size={20}/>} label="Expenses" active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} color={currentUser.text} />
           <NavItem icon={<CheckSquare size={20}/>} label="To-Dos" active={activeTab === 'todos'} onClick={() => setActiveTab('todos')} color={currentUser.text} />
           <NavItem icon={<NotebookPen size={20}/>} label="Notes" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} color={currentUser.text} />
@@ -641,6 +696,7 @@ export default function App() {
       {/* MOBILE NAV (Bottom) */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-2 pb-safe z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <MobileNavItem icon={<Home size={20}/>} label="Home" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} color={currentUser.text} />
+        <MobileNavItem icon={<MessageCircle size={20}/>} label="Chat" active={activeTab === 'chat'} onClick={() => setActiveTab('chat')} color={currentUser.text} badge={unseenChatCount} />
         <MobileNavItem icon={<CreditCard size={20}/>} label="Expenses" active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} color={currentUser.text} />
         <MobileNavItem icon={<CheckSquare size={20}/>} label="Tasks" active={activeTab === 'todos'} onClick={() => setActiveTab('todos')} color={currentUser.text} />
         <MobileNavItem icon={<NotebookPen size={20}/>} label="Notes" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} color={currentUser.text} />
