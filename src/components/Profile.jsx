@@ -271,7 +271,7 @@ function ResetRecords({ expenses, todos, onReset }) {
   );
 }
 
-function NotificationSettings() {
+function NotificationSettings({ onEnablePush }) {
   const [status, setStatus] = useState(notificationSupport());
   const [checkTime, setCheckTime] = useState(getNotifyTime());
 
@@ -280,7 +280,8 @@ function NotificationSettings() {
     setStatus(result);
     if (result === 'granted') {
       enableBackgroundCheck();
-      showSystemNotification('DuoHub notifications enabled', "You'll get an alert here when tasks are due.");
+      if (onEnablePush) await onEnablePush();
+      showSystemNotification('DuoHub notifications enabled', "You'll get chat messages and due-task alerts here.");
     }
   };
 
@@ -306,7 +307,7 @@ function NotificationSettings() {
         </div>
         <div>
           <h2 className="text-lg md:text-xl font-bold">Device Notifications</h2>
-          <p className="text-gray-500 text-xs md:text-sm">Get due-task alerts in your phone's notification bar.</p>
+          <p className="text-gray-500 text-xs md:text-sm">Get chat messages and due-task alerts in your phone's notification bar — even when the app is closed.</p>
         </div>
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -413,7 +414,7 @@ function LocationSharing({ currentUser, partner, onToggleShareLocation, onRefres
   );
 }
 
-export default function Profile({ users, currentUser, partner, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset, incomes, onAddIncome, onDeleteIncome, onToggleShareLocation, onRefreshLocation, onUpdateAvatar }) {
+export default function Profile({ users, currentUser, partner, onUpdateProfile, monthlyPlans, onUpdatePlan, availableMonths, currentMonthStr, expenses, todos, onReset, incomes, onAddIncome, onDeleteIncome, onToggleShareLocation, onRefreshLocation, onUpdateAvatar, onEnablePush }) {
   const [u1Name, setU1Name] = useState(users[0].name);
   const [u2Name, setU2Name] = useState(users[1].name);
   const [u1Currency, setU1Currency] = useState(users[0].currency || 'USD');
@@ -456,7 +457,7 @@ export default function Profile({ users, currentUser, partner, onUpdateProfile, 
     <div className="space-y-6">
       <InstallApp />
 
-      <NotificationSettings />
+      <NotificationSettings onEnablePush={onEnablePush} />
 
       <LocationSharing currentUser={currentUser} partner={partner} onToggleShareLocation={onToggleShareLocation} onRefreshLocation={onRefreshLocation} />
 

@@ -356,6 +356,20 @@ export async function uploadChatMedia(blob, ext) {
   return data.publicUrl;
 }
 
+// Web Push subscription for this device — upsert on endpoint so re-subscribing
+// the same browser updates its row instead of colliding with the unique constraint.
+export const addPushSubscription = (userId, sub) =>
+  supabase.from('push_subscriptions').upsert({
+    user_id: userId,
+    endpoint: sub.endpoint,
+    p256dh: sub.keys.p256dh,
+    auth: sub.keys.auth,
+    user_agent: navigator.userAgent,
+  }, { onConflict: 'endpoint' }).then(unwrap);
+
+export const removePushSubscription = (endpoint) =>
+  supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).then(unwrap);
+
 // Fires callback on any change made from another device.
 export function subscribeToChanges(onChange) {
   return supabase

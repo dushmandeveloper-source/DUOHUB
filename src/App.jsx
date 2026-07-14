@@ -3,7 +3,7 @@ import { Home, CreditCard, CheckSquare, NotebookPen, PieChart as PieChartIcon, U
 import { INITIAL_USERS, CATEGORIES, INITIAL_EXPENSES, INITIAL_TODOS, INITIAL_PLAN, INITIAL_GOAL, monthLabel } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { usePresence } from './hooks/usePresence';
-import { showSystemNotification, getNotifyTime, enableBackgroundCheck } from './notifications';
+import { showSystemNotification, getNotifyTime, enableBackgroundCheck, subscribeToPush, CHAT_NOTIFICATION_TAG } from './notifications';
 import { isCloudEnabled } from './lib/supabase';
 import { onUpdateAvailable, applyUpdate } from './updater';
 import { getCurrentPosition, startWatch, haversineKm } from './lib/geo';
@@ -115,12 +115,35 @@ export default function App() {
     return () => db.unsubscribe(channel);
   }, [loadFromCloud]);
 
-  // Register the background due-task check once notifications are allowed
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      enableBackgroundCheck();
+  // Subscribes this device to Web Push and stores the subscription, so chat
+  // messages arrive in the notification bar even when the app is closed.
+  const enableChatPush = useCallback(async () => {
+    if (!isCloudEnabled) return false;
+    try {
+      const sub = await subscribeToPush();
+      if (!sub) return false;
+      await db.addPushSubscription(currentUserId, sub);
+      return true;
+    } catch (err) {
+      logSyncError(err);
+      return false;
     }
-  }, []);
+  }, [currentUserId]);
+
+  // Register the background due-task check and refresh the push subscription
+  // once notifications are allowed (push endpoints can rotate, so re-upsert on load).
+  // window.Notification — the bare name is shadowed by the Notification component import.
+  // Runs once per app load: the device stays registered to the person it was opened
+  // as, so casually toggling to peek at the partner's view doesn't steal their pushes.
+  const autoSubscribedRef = useRef(false);
+  useEffect(() => {
+    if (autoSubscribedRef.current) return;
+    if ('Notification' in window && window.Notification.permission === 'granted') {
+      autoSubscribedRef.current = true;
+      enableBackgroundCheck();
+      enableChatPush();
+    }
+  }, [enableChatPush]);
 
   // Generate available months including +/- 3 months from today for planning
   const availableMonths = useMemo(() => {
@@ -378,7 +401,9 @@ export default function App() {
           : newest.kind === 'video' ? '🎥 Video'
           : newest.body;
         toast(`New message from ${partnerUser.name} 💬: ${preview}`);
-        showSystemNotification(`💬 ${partnerUser.name}`, preview);
+        // Same tag as the server push for this message — the OS collapses them
+        // into one notification instead of showing duplicates.
+        showSystemNotification(`💬 ${partnerUser.name}`, preview, CHAT_NOTIFICATION_TAG);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -529,7 +554,7 @@ export default function App() {
       case 'todos': return <Todos todos={todos} onSetStatus={setTodoStatus} onAdd={addTodo} onDelete={deleteTodo} onEdit={editTodo} users={users} currentUser={currentUser} availableMonths={availableMonths} />;
       case 'notes': return <Notes notes={notes} onAdd={addNote} onEdit={editNote} onDelete={deleteNote} users={users} currentUser={currentUser} />;
       case 'us': return <Us bucketList={bucketList} onAdd={addBucketItem} onToggleDone={toggleBucketDone} onEdit={updateBucketItem} onDelete={deleteBucketItem} users={users} currentUser={currentUser} />;
-      case 'profile': return <Profile users={users} currentUser={currentUser} partner={partnerUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} onToggleShareLocation={toggleShareLocation} onRefreshLocation={refreshMyLocation} onUpdateAvatar={updateAvatar} />;
+      case 'profile': return <Profile users={users} currentUser={currentUser} partner={partnerUser} onUpdateProfile={updateProfile} monthlyPlans={myPlans} onUpdatePlan={updatePlan} availableMonths={availableMonths} currentMonthStr={currentMonthStr} expenses={expenses} todos={todos} onReset={resetRecords} incomes={myIncomes} onAddIncome={addIncome} onDeleteIncome={deleteIncome} onToggleShareLocation={toggleShareLocation} onRefreshLocation={refreshMyLocation} onUpdateAvatar={updateAvatar} onEnablePush={enableChatPush} />;
       default: return null;
     }
   };

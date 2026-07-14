@@ -87,8 +87,14 @@ export default function RichTextEditor({ content, onChange, placeholder }) {
           </ToolbarButton>
         </div>
       )}
-      <div className={richTextStyles}>
-        <EditorContent editor={editor} className="max-w-none px-4 py-3 min-h-[150px] focus:outline-none" />
+      {/* min-height must sit on the .ProseMirror contenteditable itself — on the
+          wrapper it leaves dead space below short text that doesn't take taps.
+          The onClick catches taps on any remaining padding and focuses the editor. */}
+      <div className={richTextStyles} onClick={() => editor?.chain().focus().run()}>
+        <EditorContent
+          editor={editor}
+          className="max-w-none px-4 py-3 cursor-text [&_.ProseMirror]:min-h-[150px] [&_.ProseMirror]:cursor-text [&_.ProseMirror]:outline-none"
+        />
       </div>
     </div>
   );

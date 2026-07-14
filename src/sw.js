@@ -2,6 +2,7 @@
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { clientsClaim } from 'workbox-core';
+import { CHAT_NOTIFICATION_TAG } from './lib/notificationTags';
 
 // Waits for the user to confirm the update (the app shows an Update banner),
 // then the SKIP_WAITING message activates the new version.
@@ -61,7 +62,38 @@ async function notifyDueTasks() {
   }
 }
 
+// Web Push from the send-message-push Edge Function — wakes this device with
+// a chat notification even when the app is fully closed.
+self.addEventListener('push', (event) => {
+  let payload = { title: 'DuoHub', body: 'New message 💬', tag: CHAT_NOTIFICATION_TAG };
+  try {
+    payload = { ...payload, ...event.data.json() };
+  } catch {
+    // non-JSON payload — fall back to the generic message
+  }
+  event.waitUntil((async () => {
+    // If the app is focused, the in-app toast already covers it — don't pop
+    // an OS banner on top of the conversation being read.
+    const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (clientList.some((c) => c.focused)) return;
+    await self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      tag: payload.tag,
+    });
+  })());
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow('/'));
+  event.waitUntil((async () => {
+    // Focus the already-open app if there is one; only open a new window otherwise.
+    const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (clientList.length > 0) {
+      await clientList[0].focus();
+    } else {
+      await self.clients.openWindow('/');
+    }
+  })());
 });

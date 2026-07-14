@@ -295,7 +295,7 @@ export default function Notes({ notes, onAdd, onEdit, onDelete, users, currentUs
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
             autoFocus
-            className="w-full text-xl font-bold bg-transparent border-none border-b border-transparent focus:border-b focus:border-gray-200 focus:outline-none py-1 transition-colors"
+            className="w-full text-xl font-bold bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
           />
 
           <div className="flex flex-col md:flex-row md:items-center gap-3">
