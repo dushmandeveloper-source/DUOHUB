@@ -5,6 +5,7 @@ import { monthLabel } from '../data';
 import { formatMoney } from '../lib/currency';
 import { toast } from '../ui';
 import { fetchWeather } from '../lib/weather';
+import { todayISO } from '../lib/dates';
 import CategoryPicker from './CategoryPicker';
 import SelectMenu from './SelectMenu';
 
@@ -167,9 +168,10 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, partnerU
 
   const handleQuickExpense = (e) => {
     e.preventDefault();
-    if (!amount || !desc) return;
-    const today = new Date().toISOString().split('T')[0];
-    onAddExpense({ amount: parseFloat(amount), desc, category: cat, date: today });
+    const parsedAmount = parseFloat(amount);
+    if (!desc || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+    const today = todayISO();
+    onAddExpense({ amount: parsedAmount, desc, category: cat, date: today });
     toast('Expense added');
     setAmount('');
     setDesc('');
@@ -191,7 +193,9 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, partnerU
   const availableBalance = totalIncome - totalSpent;
   const monthSavingsDeposits = monthExpenses.filter(e => e.category === 'savings-deposit').reduce((acc, curr) => acc + curr.amount, 0);
 
-  const spendPercent = budgetAllowed > 0 ? Math.min(100, (totalSpent / budgetAllowed) * 100) : 0;
+  const spendPercent = budgetAllowed > 0
+    ? Math.min(100, (totalSpent / budgetAllowed) * 100)
+    : (totalSpent > 0 ? 100 : 0);
   const progressPercent = savingsGoal.target > 0 ? Math.min(100, Math.round((savingsGoal.current / savingsGoal.target) * 100)) : 0;
 
   const chartData = [
@@ -310,7 +314,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, partnerU
 
         <div className="space-y-3 flex-1">
           {pendingTodos.length > 0 ? pendingTodos.map(todo => {
-            const todayStr = new Date().toISOString().split('T')[0];
+            const todayStr = todayISO();
             const isDue = todo.dueDate && todo.dueDate <= todayStr;
             return (
               <div key={todo.id} className="flex items-start md:items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 cursor-pointer hover:border-gray-300 transition-all" onClick={() => onSetTodoStatus(todo.id, 'waiting')}>
@@ -604,7 +608,7 @@ export default function Dashboard({ expenses, savingsGoal, currentUser, partnerU
 
           <div className="relative z-10 flex flex-row gap-2 items-center w-full mt-auto">
             <input type="number" step="0.01" min="0" placeholder="Amount" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-24 sm:w-32 bg-white/10 border border-white/20 rounded-xl px-3 py-2 md:px-4 md:py-3 text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-white/50 text-sm" />
-            <button onClick={() => { if(addAmount) { onAddSavings(parseFloat(addAmount)); toast('Added to savings goal'); setAddAmount(''); } }} className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40 px-3 py-2 md:px-6 md:py-3 rounded-xl transition-all font-medium flex justify-center items-center gap-2 active:scale-95 text-xs md:text-sm">
+            <button onClick={() => { const parsed = parseFloat(addAmount); if (Number.isFinite(parsed) && parsed > 0) { onAddSavings(parsed); toast('Added to savings goal'); setAddAmount(''); } }} className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40 px-3 py-2 md:px-6 md:py-3 rounded-xl transition-all font-medium flex justify-center items-center gap-2 active:scale-95 text-xs md:text-sm">
               <Plus size={16} className="shrink-0" /> Add
             </button>
           </div>

@@ -18,8 +18,9 @@ function AddExpenseForm({ onAdd, categories, currentUser }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!amount || !desc) return;
-    onAdd({ amount: parseFloat(amount), desc, category: cat, date: date || today });
+    const parsedAmount = parseFloat(amount);
+    if (!desc || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+    onAdd({ amount: parsedAmount, desc, category: cat, date: date || today });
     toast('Expense added');
     setAmount('');
     setDesc('');

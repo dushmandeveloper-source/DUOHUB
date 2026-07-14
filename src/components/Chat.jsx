@@ -58,11 +58,66 @@ function messagePreview(m) {
 // Long-press (touch) or right-click opens the message action menu.
 function usePressActions(onAction) {
   const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
   return {
     onTouchStart: () => { timer.current = setTimeout(onAction, 450); },
     onTouchEnd: () => clearTimeout(timer.current),
     onTouchMove: () => clearTimeout(timer.current),
     onContextMenu: (e) => { e.preventDefault(); onAction(); },
+  };
+}
+
+// WhatsApp-style horizontal swipe: dragging a bubble left/right reveals a
+// reply icon; releasing past the threshold triggers the reply and springs
+// the bubble back. Swipe is suppressed once a long-press has already fired
+// so the two gestures don't both trigger on the same touch.
+const SWIPE_TRIGGER_PX = 56;
+const SWIPE_MAX_PX = 80;
+
+function useSwipeToReply(onTrigger) {
+  const startX = useRef(null);
+  const startY = useRef(null);
+  const dragging = useRef(false);
+  const locked = useRef(false); // true once we've decided this is a horizontal swipe
+  const [dx, setDx] = useState(0);
+
+  const reset = () => {
+    startX.current = null;
+    startY.current = null;
+    dragging.current = false;
+    locked.current = false;
+    setDx(0);
+  };
+
+  return {
+    dx,
+    handlers: {
+      onTouchStart: (e) => {
+        const t = e.touches[0];
+        startX.current = t.clientX;
+        startY.current = t.clientY;
+        dragging.current = true;
+      },
+      onTouchMove: (e) => {
+        if (!dragging.current) return;
+        const t = e.touches[0];
+        const deltaX = t.clientX - startX.current;
+        const deltaY = t.clientY - startY.current;
+        if (!locked.current) {
+          if (Math.abs(deltaX) < 8 && Math.abs(deltaY) < 8) return;
+          // Only claim the gesture as a swipe if it's clearly more horizontal
+          // than vertical — otherwise let the page scroll normally.
+          if (Math.abs(deltaX) <= Math.abs(deltaY)) { dragging.current = false; return; }
+          locked.current = true;
+        }
+        setDx(Math.max(-SWIPE_MAX_PX, Math.min(SWIPE_MAX_PX, deltaX)));
+      },
+      onTouchEnd: () => {
+        if (locked.current && Math.abs(dx) >= SWIPE_TRIGGER_PX) onTrigger();
+        reset();
+      },
+      onTouchCancel: reset,
+    },
   };
 }
 
@@ -83,23 +138,46 @@ function QuoteBlock({ quoted, isOwn, nameOf, onJumpTo }) {
   );
 }
 
-function MessageBubble({ msg, isOwn, personColor, onOpenImage, onAction, quoted, nameOf, onJumpTo }) {
+function MessageBubble({ msg, isOwn, personColor, onOpenImage, onAction, onReply, quoted, nameOf, onJumpTo }) {
   const time = new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const press = usePressActions(() => onAction(msg));
+  const { dx, handlers: swipe } = useSwipeToReply(() => onReply(msg));
+  const revealProgress = Math.min(1, Math.abs(dx) / SWIPE_TRIGGER_PX);
+
+  const swipeIcon = dx !== 0 && (
+    <div
+      className="absolute inset-y-0 flex items-center text-gray-400"
+      style={{ [dx > 0 ? 'left' : 'right']: 4, opacity: revealProgress }}
+    >
+      <Reply size={18} />
+    </div>
+  );
 
   if (msg.kind === 'sticker') {
     return (
-      <div id={`msg-${msg.id}`} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-        <span className="text-7xl leading-none select-none cursor-pointer" {...press}>{msg.body}</span>
+      <div id={`msg-${msg.id}`} className={`relative flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+        {swipeIcon}
+        <span
+          className="text-7xl leading-none select-none cursor-pointer"
+          style={{ transform: `translateX(${dx}px)`, transition: dx === 0 ? 'transform 0.2s ease-out' : 'none' }}
+          {...press}
+          {...swipe}
+        >
+          {msg.body}
+        </span>
         <MessageMeta time={time} isOwn={isOwn} seen={msg.seen} />
       </div>
     );
   }
 
   return (
-    <div id={`msg-${msg.id}`} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-      <div className={`max-w-[85%] min-w-0 select-none md:select-text ${msg.kind === 'text' ? 'px-3.5 py-2' : 'p-1.5'} rounded-2xl ${isOwn ? `${personColor} text-white rounded-br-md` : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}
+    <div id={`msg-${msg.id}`} className={`relative flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+      {swipeIcon}
+      <div
+        className={`max-w-[85%] min-w-0 select-none md:select-text ${msg.kind === 'text' ? 'px-3.5 py-2' : 'p-1.5'} rounded-2xl ${isOwn ? `${personColor} text-white rounded-br-md` : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}
+        style={{ transform: `translateX(${dx}px)`, transition: dx === 0 ? 'transform 0.2s ease-out' : 'none' }}
         {...press}
+        {...swipe}
       >
         {msg.replyTo != null && <QuoteBlock quoted={quoted} isOwn={isOwn} nameOf={nameOf} onJumpTo={onJumpTo} />}
         {msg.kind === 'text' && (
@@ -315,6 +393,7 @@ export default function Chat({ messages, currentUser, partnerUser, partnerOnline
                     personColor={personColor}
                     onOpenImage={setLightboxUrl}
                     onAction={setActionMsg}
+                    onReply={(m) => { setReplyTo(m); textareaRef.current?.focus(); }}
                     quoted={msg.replyTo != null ? msgById[msg.replyTo] : null}
                     nameOf={nameOf}
                     onJumpTo={jumpTo}

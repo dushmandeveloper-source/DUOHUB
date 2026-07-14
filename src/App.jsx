@@ -252,7 +252,7 @@ export default function App() {
   };
 
   const addSavings = (amount) => {
-    if (!Number.isFinite(amount)) return;
+    if (!Number.isFinite(amount) || amount <= 0) return;
     const next = { ...currentGoal, current: currentGoal.current + amount };
     setSavingsGoals(prev => ({ ...prev, [currentUser.id]: next }));
     if (isCloudEnabled) db.updateGoal(currentUser.id, next).catch(logSyncError);
